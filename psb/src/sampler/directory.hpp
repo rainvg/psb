@@ -8,6 +8,7 @@
 
 namespace psb
 {
+    using namespace drop;
 };
 
 #endif
