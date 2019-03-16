@@ -1,2 +1,13 @@
-manifest = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+manifest = "6ad9af1796572f2312a6113e2454722ce621f1e8bf48547f4f0adb512e39830b"
 
+[[dependency]]
+package = "github.com/rainvg/drop"
+target = "//:drop"
+
+[lock."github.com/buckaroo-pm/jedisct1-libsodium"]
+versions = [ "branch=master" ]
+revision = "2841fd740122b966e6fa2cf8246f38a08f22caba"
+
+[lock."github.com/rainvg/drop"]
+versions = [ "branch=develop" ]
+revision = "a2a902dd473a33392fba4dba8bf645c6f73ef927"
