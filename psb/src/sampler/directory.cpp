@@ -85,6 +85,20 @@ namespace psb
             else
                 co_await connection.send(log);
 
+            [=,this]()-> promise <void>
+            {
+                co_await wait(settings :: timeout);
+
+                this->_guard([&]()
+                {
+                    if((this->_members.find(publickey) != this->_members.end()) && (now() - this->_members[publickey].lastkeepalive >= settings :: timeout))
+                    {
+                        this->_log.push_back(remove{publickey});
+                        this->_members.erase(publickey);
+                    }
+                });
+            }();
+
             co_await wait(1_s);
         }
         catch(const exception <> & exception)
