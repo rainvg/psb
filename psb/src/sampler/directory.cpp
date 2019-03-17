@@ -10,37 +10,37 @@ namespace psb
 
     // Constructors
 
-    directory :: directory(const class address :: port & binding) : _listener(tcp :: listen(binding))
+    directory :: directory(const class address :: port & binding) : _arc(std :: make_shared <arc> (tcp :: listen(binding)))
     {
-        this->run();
+        this->run(this->_arc);
     }
 
-    directory :: directory(const address & binding) : _listener(tcp :: listen(binding))
+    directory :: directory(const address & binding) : _arc(std :: make_shared <arc> (tcp :: listen(binding)))
     {
-        this->run();
+        this->run(this->_arc);
     }
 
     // Private methods
 
-    promise <void> directory :: timeout(class keyexchanger :: publickey publickey)
+    promise <void> directory :: timeout(std :: shared_ptr <arc> arc, class keyexchanger :: publickey publickey)
     {
         co_await wait(settings :: timeout);
 
         std :: cout << "Checking timeout for " << publickey << std :: endl;
 
-        this->_guard([&]()
+        arc->_guard([&]()
         {
             timestamp currenttime = now();
-            if((this->_members.find(publickey) != this->_members.end()) && (currenttime - this->_members[publickey].lastkeepalive >= settings :: timeout))
+            if((arc->_members.find(publickey) != arc->_members.end()) && (currenttime - arc->_members[publickey].lastkeepalive >= settings :: timeout))
             {
-                std :: cout << "Removing " << publickey << ": " << this->_members[publickey].lastkeepalive << " is before " << currenttime << std :: endl;
-                this->_log.push_back(remove{publickey});
-                this->_members.erase(publickey);
+                std :: cout << "Removing " << publickey << ": " << arc->_members[publickey].lastkeepalive << " is before " << currenttime << std :: endl;
+                arc->_log.push_back(remove{publickey});
+                arc->_members.erase(publickey);
             }
         });
     }
 
-    promise <void> directory :: serve(connection connection)
+    promise <void> directory :: serve(std :: shared_ptr <arc> arc, connection connection)
     {
         try
         {
@@ -60,47 +60,47 @@ namespace psb
             members.clear();
             log.clear();
 
-            this->_guard([&]()
+            arc->_guard([&]()
             {
-                if(this->_members.find(publickey) != this->_members.end())
+                if(arc->_members.find(publickey) != arc->_members.end())
                 {
-                    if(this->_members[publickey].address != address)
+                    if(arc->_members[publickey].address != address)
                     {
                         std :: cout << "Updating " << publickey << std :: endl;
-                        this->_members[publickey] = {.address = address, .lastkeepalive = now()};
+                        arc->_members[publickey] = {.address = address, .lastkeepalive = now()};
 
-                        this->_log.push_back(remove{publickey});
-                        this->_log.push_back(add{.publickey = publickey, .address = address});
+                        arc->_log.push_back(remove{publickey});
+                        arc->_log.push_back(add{.publickey = publickey, .address = address});
                     }
                     else
                     {
-                        this->_members[publickey].lastkeepalive = now();
-                        std :: cout << "Renewing " << publickey << " to " << this->_members[publickey].lastkeepalive << std :: endl;
+                        arc->_members[publickey].lastkeepalive = now();
+                        std :: cout << "Renewing " << publickey << " to " << arc->_members[publickey].lastkeepalive << std :: endl;
                     }
                 }
                 else
                 {
                     std :: cout << "Adding " << publickey << std :: endl;
-                    this->_members[publickey] = {.address = address, .lastkeepalive = now()};
-                    this->_log.push_back(add{.publickey = publickey, .address = address});
+                    arc->_members[publickey] = {.address = address, .lastkeepalive = now()};
+                    arc->_log.push_back(add{.publickey = publickey, .address = address});
                 }
 
                 if(flush)
                 {
-                    members.reserve(this->_members.size());
+                    members.reserve(arc->_members.size());
 
-                    for(const auto & entry : this->_members)
+                    for(const auto & entry : arc->_members)
                         members.push_back(member{.publickey = entry.first, .address = entry.second.address});
                 }
                 else
                 {
-                    log.reserve(this->_log.size() - version);
+                    log.reserve(arc->_log.size() - version);
 
-                    for(size_t v = version; v < this->_log.size(); v++)
-                        log.push_back(this->_log[v]);
+                    for(size_t v = version; v < arc->_log.size(); v++)
+                        log.push_back(arc->_log[v]);
                 }
 
-                version = this->_log.size();
+                version = arc->_log.size();
             });
 
             if(flush)
@@ -108,7 +108,7 @@ namespace psb
             else
                 co_await connection.send(log);
 
-            this->timeout(publickey);
+            this->timeout(arc, publickey);
 
             co_await wait(1_s);
         }
@@ -118,10 +118,17 @@ namespace psb
         }
     }
 
-    promise <void> directory :: run()
+    promise <void> directory :: run(std :: shared_ptr <arc> arc)
     {
         while(true)
-            this->serve(co_await this->_listener.accept());
+            this->serve(arc, co_await arc->_listener.accept());
+    }
 
+    // arc
+
+    // Constructors
+
+    directory :: arc :: arc(const listener & listener) : _listener(listener)
+    {
     }
 };

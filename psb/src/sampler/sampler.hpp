@@ -9,27 +9,10 @@ namespace psb
 {
     using namespace drop;
 
-    // Constraints
+    // Constructors
 
-    template <typename ctype> template <typename type, typename... atypes> constexpr bool sampler <ctype> :: constraints :: construct()
+    template <typename ctype> template <typename type, std :: enable_if_t <parameters :: in <type, typename sampler <ctype> :: variant> :: value> *> sampler <ctype> :: sampler(const type & sampler) : _sampler(sampler)
     {
-        return parameters :: in <type, variant> :: value && std :: is_constructible <type, atypes...> :: value;
-    }
-
-    // Private constructors
-
-    template <typename ctype> sampler <ctype> :: sampler(const std :: shared_ptr <variant> & arc) : _arc(arc)
-    {
-    }
-
-    // Static methods
-
-    template <typename ctype> template <typename type, typename... atypes, std :: enable_if_t <sampler <ctype> :: constraints :: template construct <type, atypes...> ()> *> sampler <ctype> sampler <ctype> :: construct(atypes && ... args)
-    {
-        std :: shared_ptr <variant> arc = std :: make_shared <variant> ();
-        arc->template emplace <type> (std :: forward <atypes> (args)...);
-
-        return sampler(arc);
     }
 };
 

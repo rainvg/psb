@@ -25,13 +25,6 @@ namespace psb
 
     template <typename ctype> class sampler
     {
-        // Constraints
-
-        struct constraints
-        {
-            template <typename, typename...> static constexpr bool construct();
-        };
-
         // Static asserts
 
         static_assert(std :: is_enum <ctype> :: value, "The template parameter of a sampler must be an enumeration type.");
@@ -42,13 +35,13 @@ namespace psb
 
         // Members
 
-        std :: shared_ptr <variant> _arc;
-
-        // Private constructors
-
-        sampler(const std :: shared_ptr <variant> &);
+        variant _sampler;
 
     public:
+
+        // Constructors
+
+        template <typename type, std :: enable_if_t <parameters :: in <type, variant> :: value> * = nullptr> sampler(const type &);
 
         // Methods
 
@@ -57,10 +50,6 @@ namespace psb
         template <ctype> promise <connection> connect();
 
         template <ctype> promise <connection> accept();
-
-        // Static methods
-
-        template <typename type, typename... atypes, std :: enable_if_t <constraints :: template construct <type, atypes...> ()> * = nullptr> static sampler construct(atypes && ...);
     };
 };
 

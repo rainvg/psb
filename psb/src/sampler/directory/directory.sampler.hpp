@@ -7,31 +7,18 @@ namespace psb
 {
     using namespace drop;
 
+    // sampler
+
     // Constructors
 
-    template <typename ctype> directory :: sampler <ctype> :: sampler(const address & directory) : _directory(directory), _version(0), _listener(this->listen())
+    template <typename ctype> directory :: sampler <ctype> :: sampler(const address & directory) : _arc(std :: make_shared <arc> (directory))
     {
-        this->keepalive();
+        this->keepalive(this->_arc);
     }
 
     // Private methods
 
-    template <typename ctype> listener directory :: sampler <ctype> :: listen()
-    {
-        while(true)
-        {
-            try
-            {
-                this->_port = 49152 + randombytes_uniform(16383);
-                return tcp :: listen(this->_port);
-            }
-            catch(...)
-            {
-            }
-        }
-    }
-
-    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive()
+    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive(std :: shared_ptr <arc> arc)
     {
         while(true)
         {
@@ -39,47 +26,47 @@ namespace psb
             {
                 std :: cout << "Sending keepalive." << std :: endl;
 
-                auto connection = co_await tcp :: connect(this->_directory);
-                co_await connection.send(this->_keyexchanger.publickey(), this->_port, this->_version);
+                auto connection = co_await tcp :: connect(arc->_directory);
+                co_await connection.send(arc->_keyexchanger.publickey(), arc->_port, arc->_version);
 
-                if(!this->_version)
+                if(!arc->_version)
                 {
                     auto response = co_await connection.template receive <uint64_t, std :: vector <member>> ();
                     auto & version = std :: get <0> (response);
                     auto & members = std :: get <1> (response);
 
-                    this->_version = version;
+                    arc->_version = version;
 
                     std :: cout << "Received " << members.size() << " members" << (members.size() ? ":" : ".") << std :: endl;
 
-                    this->_guard([&]()
+                    arc->_guard([&]()
                     {
                         for(const auto & member : members)
                         {
                             std :: cout << "\t" << member.publickey << ": " << member.address << std :: endl;
-                            this->_membership.add(member);
+                            arc->_membership.add(member);
                         }
                     });
                 }
                 else
                 {
                     auto log = co_await connection.template receive <std :: vector <update>> ();
-                    this->_version += log.size();
+                    arc->_version += log.size();
 
                     std :: cout << "Received " << log.size() << " updates" << (log.size() ? ":" : ".") << std :: endl;
 
-                    this->_guard([&]()
+                    arc->_guard([&]()
                     {
                         for(const auto & update : log)
                         {
                             update.match([&](const add & member)
                             {
                                 std :: cout << "\tAdd " << member.publickey << ": " << member.address << std :: endl;
-                                this->_membership.add(member);
+                                arc->_membership.add(member);
                             }, [&](const remove & publickey)
                             {
                                 std :: cout << "\tRemove " << publickey << std :: endl;
-                                this->_membership.remove(publickey);
+                                arc->_membership.remove(publickey);
                             });
                         }
                     });
@@ -92,6 +79,29 @@ namespace psb
                 std :: cout << "Sampler exception: " << exception.what() << std :: endl;
             }
         }
+    }
+
+    // Private static methods
+
+    template <typename ctype> listener directory :: sampler <ctype> :: listen(class address :: port & port)
+    {
+        while(true)
+        {
+            try
+            {
+                port = 49152 + randombytes_uniform(16383);
+                return tcp :: listen(port);
+            }
+            catch(...)
+            {
+            }
+        }
+    }
+
+    // arc
+
+    template <typename ctype> directory :: sampler <ctype> :: arc :: arc(const address & directory) : _directory(directory), _version(0), _listener(listen(this->_port))
+    {
     }
 };
 

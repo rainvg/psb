@@ -15,7 +15,7 @@ namespace psb
 
     template <typename ctype> sampler <ctype> directory :: sample(const address & directory)
     {
-        return psb :: sampler <ctype> :: template construct <sampler <ctype>> (directory);
+        return psb :: sampler <ctype> (sampler <ctype> (directory));
     }
 };
 

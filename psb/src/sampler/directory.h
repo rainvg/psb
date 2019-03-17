@@ -45,6 +45,8 @@ namespace psb
 
         // Service nested classes
 
+        class arc;
+
         class membership;
         template <typename> class sampler;
 
@@ -77,11 +79,7 @@ namespace psb
 
         // Members
 
-        std :: unordered_map <class keyexchanger :: publickey, entry, shorthash> _members;
-        std :: vector <update> _log;
-
-        guard <simple> _guard;
-        listener _listener;
+        std :: shared_ptr <arc> _arc;
 
     public:
 
@@ -94,16 +92,37 @@ namespace psb
 
         // Private methods
 
-        promise <void> timeout(class keyexchanger :: publickey);
-        
-        promise <void> serve(connection);
-        promise <void> run();
+        promise <void> timeout(std :: shared_ptr <arc>, class keyexchanger :: publickey);
+
+        promise <void> serve(std :: shared_ptr <arc>, connection);
+        promise <void> run(std :: shared_ptr <arc>);
 
     public:
 
         // Static methods
 
         template <typename ctype> static psb :: sampler <ctype> sample(const address &);
+    };
+
+    class directory :: arc
+    {
+        // Friends
+
+        friend class directory;
+
+        // Members
+
+        std :: unordered_map <class keyexchanger :: publickey, entry, shorthash> _members;
+        std :: vector <update> _log;
+
+        guard <simple> _guard;
+        listener _listener;
+
+    public:
+
+        // Constructors
+
+        arc(const listener &);
     };
 
     class directory :: membership
@@ -136,6 +155,37 @@ namespace psb
 
     template <typename> class directory :: sampler
     {
+        // Service nested classes
+
+        class arc;
+
+        // Members
+
+        std :: shared_ptr <arc> _arc;
+
+    public:
+
+        // Constructors
+
+        sampler(const address &);
+
+    private:
+
+        // Private methods
+
+        promise <void> keepalive(std :: shared_ptr <arc>);
+
+        // Private static methods
+
+        static listener listen(class address :: port &);
+    };
+
+    template <typename ctype> class directory :: sampler <ctype> :: arc
+    {
+        // Friends
+
+        template <typename> friend class directory :: sampler;
+
         // Members
 
         address _directory;
@@ -153,15 +203,7 @@ namespace psb
 
         // Constructors
 
-        sampler(const address &);
-
-    private:
-
-        // Private methods
-
-        listener listen();
-
-        promise <void> keepalive();
+        arc(const address &);
     };
 };
 
