@@ -35,8 +35,13 @@ namespace psb
 
         struct settings
         {
+            struct timeouts
+            {
+                static constexpr interval keepalive = 30_s;
+                static constexpr interval network = 10_s;
+            };
+
             static constexpr interval keepalive = 10_s;
-            static constexpr interval timeout = 30_s;
         };
 
         // Friends
@@ -92,10 +97,10 @@ namespace psb
 
         // Private methods
 
-        promise <void> timeout(std :: shared_ptr <arc>, class keyexchanger :: publickey);
+        promise <void> timeout(std :: weak_ptr <arc>, class keyexchanger :: publickey);
 
-        promise <void> serve(std :: shared_ptr <arc>, connection);
-        promise <void> run(std :: shared_ptr <arc>);
+        promise <void> serve(std :: weak_ptr <arc>, connection);
+        promise <void> run(std :: weak_ptr <arc>);
 
     public:
 
@@ -173,7 +178,7 @@ namespace psb
 
         // Private methods
 
-        promise <void> keepalive(std :: shared_ptr <arc>);
+        promise <void> keepalive(std :: weak_ptr <arc>);
 
         // Private static methods
 

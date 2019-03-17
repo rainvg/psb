@@ -18,66 +18,70 @@ namespace psb
 
     // Private methods
 
-    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive(std :: shared_ptr <arc> arc)
+    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive(std :: weak_ptr <arc> warc)
     {
         while(true)
         {
-            try
+            if(auto arc = warc.lock())
             {
-                std :: cout << "Sending keepalive." << std :: endl;
-
-                auto connection = co_await tcp :: connect(arc->_directory);
-                co_await connection.send(arc->_keyexchanger.publickey(), arc->_port, arc->_version);
-
-                if(!arc->_version)
+                try
                 {
-                    auto response = co_await connection.template receive <uint64_t, std :: vector <member>> ();
-                    auto & version = std :: get <0> (response);
-                    auto & members = std :: get <1> (response);
+                    std :: cout << "Sending keepalive." << std :: endl;
 
-                    arc->_version = version;
+                    auto connection = co_await tcp :: connect(arc->_directory);
+                    co_await connection.send(arc->_keyexchanger.publickey(), arc->_port, arc->_version);
 
-                    std :: cout << "Received " << members.size() << " members" << (members.size() ? ":" : ".") << std :: endl;
-
-                    arc->_guard([&]()
+                    if(!arc->_version)
                     {
-                        for(const auto & member : members)
-                        {
-                            std :: cout << "\t" << member.publickey << ": " << member.address << std :: endl;
-                            arc->_membership.add(member);
-                        }
-                    });
-                }
-                else
-                {
-                    auto log = co_await connection.template receive <std :: vector <update>> ();
-                    arc->_version += log.size();
+                        auto response = co_await connection.template receive <uint64_t, std :: vector <member>> ();
+                        auto & version = std :: get <0> (response);
+                        auto & members = std :: get <1> (response);
 
-                    std :: cout << "Received " << log.size() << " updates" << (log.size() ? ":" : ".") << std :: endl;
+                        arc->_version = version;
 
-                    arc->_guard([&]()
-                    {
-                        for(const auto & update : log)
+                        std :: cout << "Received " << members.size() << " members" << (members.size() ? ":" : ".") << std :: endl;
+
+                        arc->_guard([&]()
                         {
-                            update.match([&](const add & member)
+                            for(const auto & member : members)
                             {
-                                std :: cout << "\tAdd " << member.publickey << ": " << member.address << std :: endl;
+                                std :: cout << "\t" << member.publickey << ": " << member.address << std :: endl;
                                 arc->_membership.add(member);
-                            }, [&](const remove & publickey)
-                            {
-                                std :: cout << "\tRemove " << publickey << std :: endl;
-                                arc->_membership.remove(publickey);
-                            });
-                        }
-                    });
-                }
+                            }
+                        });
+                    }
+                    else
+                    {
+                        auto log = co_await connection.template receive <std :: vector <update>> ();
+                        arc->_version += log.size();
 
-                co_await wait(settings :: keepalive);
+                        std :: cout << "Received " << log.size() << " updates" << (log.size() ? ":" : ".") << std :: endl;
+
+                        arc->_guard([&]()
+                        {
+                            for(const auto & update : log)
+                            {
+                                update.match([&](const add & member)
+                                {
+                                    std :: cout << "\tAdd " << member.publickey << ": " << member.address << std :: endl;
+                                    arc->_membership.add(member);
+                                }, [&](const remove & publickey)
+                                {
+                                    std :: cout << "\tRemove " << publickey << std :: endl;
+                                    arc->_membership.remove(publickey);
+                                });
+                            }
+                        });
+                    }
+
+                    co_await wait(settings :: keepalive);
+                }
+                catch(const exception <> & exception)
+                {
+                }
             }
-            catch(const exception <> & exception)
-            {
-                std :: cout << "Sampler exception: " << exception.what() << std :: endl;
-            }
+            else
+                break;
         }
     }
 
