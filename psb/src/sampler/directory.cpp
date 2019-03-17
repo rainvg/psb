@@ -22,6 +22,24 @@ namespace psb
 
     // Private methods
 
+    promise <void> directory :: timeout(class keyexchanger :: publickey publickey)
+    {
+        co_await wait(settings :: timeout);
+
+        std :: cout << "Checking timeout for " << publickey << std :: endl;
+
+        this->_guard([&]()
+        {
+            timestamp currenttime = now();
+            if((this->_members.find(publickey) != this->_members.end()) && (currenttime - this->_members[publickey].lastkeepalive >= settings :: timeout))
+            {
+                std :: cout << "Removing " << publickey << ": " << this->_members[publickey].lastkeepalive << " is before " << currenttime << std :: endl;
+                this->_log.push_back(remove{publickey});
+                this->_members.erase(publickey);
+            }
+        });
+    }
+
     promise <void> directory :: serve(connection connection)
     {
         try
@@ -48,16 +66,21 @@ namespace psb
                 {
                     if(this->_members[publickey].address != address)
                     {
+                        std :: cout << "Updating " << publickey << std :: endl;
                         this->_members[publickey] = {.address = address, .lastkeepalive = now()};
 
                         this->_log.push_back(remove{publickey});
                         this->_log.push_back(add{.publickey = publickey, .address = address});
                     }
                     else
+                    {
                         this->_members[publickey].lastkeepalive = now();
+                        std :: cout << "Renewing " << publickey << " to " << this->_members[publickey].lastkeepalive << std :: endl;
+                    }
                 }
                 else
                 {
+                    std :: cout << "Adding " << publickey << std :: endl;
                     this->_members[publickey] = {.address = address, .lastkeepalive = now()};
                     this->_log.push_back(add{.publickey = publickey, .address = address});
                 }
@@ -85,19 +108,7 @@ namespace psb
             else
                 co_await connection.send(log);
 
-            [=,this]()-> promise <void>
-            {
-                co_await wait(settings :: timeout);
-
-                this->_guard([&]()
-                {
-                    if((this->_members.find(publickey) != this->_members.end()) && (now() - this->_members[publickey].lastkeepalive >= settings :: timeout))
-                    {
-                        this->_log.push_back(remove{publickey});
-                        this->_members.erase(publickey);
-                    }
-                });
-            }();
+            this->timeout(publickey);
 
             co_await wait(1_s);
         }

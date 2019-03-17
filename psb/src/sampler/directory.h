@@ -94,6 +94,8 @@ namespace psb
 
         // Private methods
 
+        promise <void> timeout(class keyexchanger :: publickey);
+        
         promise <void> serve(connection);
         promise <void> run();
 

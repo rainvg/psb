@@ -22,25 +22,15 @@ namespace
 
     // Tests
 
-    $test("directory/develop", {.instances = 3}, []
+    $test("directory/server", []
     {
-        if(:: test :: instance :: id() == 0)
-        {
-            directory directory(1234);
-            sleep(2_m);
-        }
-        else if(:: test :: instance :: id() == 1)
-        {
-            sleep(1_s);
+        directory directory(1234);
+        sleep(2_h);
+    });
 
-            auto alice = directory :: sample <channels> ({:: test :: instance :: get <:: test :: IPv4> (0), 1234});
-            sleep(2_m);
-        }
-        else {
-            sleep(1_s);
-
-            auto bob = directory :: sample <channels> ({:: test :: instance :: get <:: test :: IPv4> (0), 1234});
-            sleep(5_s);
-        }
+    $test("directory/client", []
+    {
+        auto client = directory :: sample <channels> ({"127.0.0.1", 1234});
+        sleep(2_h);
     });
 };
