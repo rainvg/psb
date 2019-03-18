@@ -13,12 +13,99 @@ namespace psb
 
     template <typename ctype> directory :: sampler <ctype> :: sampler(const address & directory) : _arc(std :: make_shared <arc> (directory))
     {
+        this->_arc->_listener.template set <timeouts :: accept> (settings :: timeouts :: network);
+
+        this->listen(this->_arc);
         this->keepalive(this->_arc);
+    }
+
+    // Methods
+
+    template <typename ctype> template <ctype channel> promise <connection> directory :: sampler <ctype> :: connectunbiased() const
+    {
+        while(true)
+        {
+            try
+            {
+                auto member = this->_arc->_guard([&]()
+                {
+                    return this->_arc->_membership.pick();
+                });
+
+                auto connection = co_await tcp :: connect(member.address); // TODO: Add timeout here.
+
+                connection.template set <timeouts :: send> (settings :: timeouts :: network);
+                connection.template set <timeouts :: receive> (settings :: timeouts :: network);
+
+                co_await connection.template secure <client> (this->_arc->_keyexchanger, member.publickey);
+                co_await connection.template send(uint8_t(channel));
+
+                if(co_await connection.template receive <bool> ())
+                    co_return connection;
+            }
+            catch(...)
+            {
+            }
+
+            co_await wait(settings :: intervals :: retry);
+        }
+    }
+
+    template <typename ctype> template <ctype channel> promise <connection> directory :: sampler <ctype> :: connectbiased() const
+    {
+        return this->connectunbiased <channel> ();
+    }
+
+    template <typename ctype> template <ctype channel> promise <connection> directory :: sampler <ctype> :: accept() const
+    {
+        promise <connection> acceptor;
+
+        this->_arc->_guard([&]()
+        {
+            if(this->_arc->_acceptors.find(uint8_t(channel)) != this->_arc->_acceptors.end())
+                exception <channel_busy> :: raise(this);
+
+            this->_arc->_acceptors[uint8_t(channel)] = acceptor;
+        });
+
+        return acceptor;
     }
 
     // Private methods
 
-    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive(std :: weak_ptr <arc> warc)
+    template <typename ctype> promise <void> directory :: sampler <ctype> :: serve(connection connection, std :: weak_ptr <arc> warc) const
+    {
+        if(auto arc = warc.lock())
+        {
+            try
+            {
+                co_await connection.secure <server> (arc->_keyexchanger);
+                auto channel = co_await connection.receive <uint8_t> ();
+
+                optional <promise <class connection>> acceptor = arc->_guard([&]() -> optional <promise <class connection>>
+                {
+                    if(arc->_acceptors.find(channel) != arc->_acceptors.end())
+                    {
+                        promise <class connection> acceptor = arc->_acceptors[channel];
+                        arc->_acceptors.erase(channel);
+                        return acceptor;
+                    }
+
+                    return optional <promise <class connection>> ();
+                });
+
+                co_await connection.send <bool> (acceptor);
+
+                if(acceptor)
+                    (*acceptor).resolve(connection);
+            }
+            catch(...)
+            {
+            }
+        }
+    }
+
+    template <typename ctype> promise <void> directory :: sampler <ctype> :: listen(std :: weak_ptr <arc> warc) const
     {
         while(true)
         {
@@ -26,8 +113,28 @@ namespace psb
             {
                 try
                 {
-                    std :: cout << "Sending keepalive." << std :: endl;
+                    auto connection = co_await arc->_listener.accept();
+                    this->serve(connection, warc);
+                }
+                catch(...)
+                {
+                }
+            }
+            else
+                break;
+        }
+    }
 
+    template <typename ctype> promise <void> directory :: sampler <ctype> :: keepalive(std :: weak_ptr <arc> warc) const
+    {
+        while(true)
+        {
+            if(auto arc = warc.lock())
+            {
+                bool exception = false;
+
+                try
+                {
                     auto connection = co_await tcp :: connect(arc->_directory);
                     co_await connection.send(arc->_keyexchanger.publickey(), arc->_port, arc->_version);
 
@@ -38,16 +145,10 @@ namespace psb
                         auto & members = std :: get <1> (response);
 
                         arc->_version = version;
-
-                        std :: cout << "Received " << members.size() << " members" << (members.size() ? ":" : ".") << std :: endl;
-
                         arc->_guard([&]()
                         {
                             for(const auto & member : members)
-                            {
-                                std :: cout << "\t" << member.publickey << ": " << member.address << std :: endl;
                                 arc->_membership.add(member);
-                            }
                         });
                     }
                     else
@@ -55,30 +156,30 @@ namespace psb
                         auto log = co_await connection.template receive <std :: vector <update>> ();
                         arc->_version += log.size();
 
-                        std :: cout << "Received " << log.size() << " updates" << (log.size() ? ":" : ".") << std :: endl;
-
                         arc->_guard([&]()
                         {
                             for(const auto & update : log)
                             {
                                 update.match([&](const add & member)
                                 {
-                                    std :: cout << "\tAdd " << member.publickey << ": " << member.address << std :: endl;
                                     arc->_membership.add(member);
                                 }, [&](const remove & publickey)
                                 {
-                                    std :: cout << "\tRemove " << publickey << std :: endl;
                                     arc->_membership.remove(publickey);
                                 });
                             }
                         });
                     }
 
-                    co_await wait(settings :: keepalive);
+                    co_await wait(settings :: intervals :: keepalive);
                 }
-                catch(const exception <> & exception)
+                catch(...)
                 {
+                    exception = true; // Cannot co_await inside of a catch.
                 }
+
+                if(exception)
+                    co_await wait(settings :: intervals :: retry);
             }
             else
                 break;

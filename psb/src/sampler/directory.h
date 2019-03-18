@@ -1,5 +1,12 @@
 namespace psb
 {
+    // Tags
+
+    class membership_empty;
+    class channel_busy;
+
+    // Classes
+
     class directory;
 };
 
@@ -41,7 +48,11 @@ namespace psb
                 static constexpr interval network = 10_s;
             };
 
-            static constexpr interval keepalive = 10_s;
+            struct intervals
+            {
+                static constexpr interval keepalive = 10_s;
+                static constexpr interval retry = 5_s;
+            };
         };
 
         // Friends
@@ -158,7 +169,7 @@ namespace psb
         member pick();
     };
 
-    template <typename> class directory :: sampler
+    template <typename ctype> class directory :: sampler
     {
         // Service nested classes
 
@@ -174,11 +185,20 @@ namespace psb
 
         sampler(const address &);
 
+        // Methods
+
+        template <ctype> promise <connection> connectunbiased() const;
+        template <ctype> promise <connection> connectbiased() const;
+
+        template <ctype> promise <connection> accept() const;
+
     private:
 
         // Private methods
 
-        promise <void> keepalive(std :: weak_ptr <arc>);
+        promise <void> serve(connection, std :: weak_ptr <arc>) const;
+        promise <void> listen(std :: weak_ptr <arc>) const;
+        promise <void> keepalive(std :: weak_ptr <arc>) const;
 
         // Private static methods
 
@@ -200,6 +220,8 @@ namespace psb
         uint64_t _version;
 
         guard <simple> _guard;
+
+        std :: unordered_map <uint8_t, promise <connection>> _acceptors;
 
         class address :: port _port;
         listener _listener;

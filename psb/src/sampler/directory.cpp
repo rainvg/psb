@@ -28,8 +28,6 @@ namespace psb
     {
         co_await wait(settings :: timeouts :: keepalive);
 
-        std :: cout << "Checking timeout for " << publickey << std :: endl;
-
         if(auto arc = warc.lock())
         {
             arc->_guard([&]()
@@ -37,7 +35,6 @@ namespace psb
                 timestamp currenttime = now();
                 if((arc->_members.find(publickey) != arc->_members.end()) && (currenttime - arc->_members[publickey].lastkeepalive >= settings :: timeouts :: keepalive))
                 {
-                    std :: cout << "Removing " << publickey << ": " << arc->_members[publickey].lastkeepalive << " is before " << currenttime << std :: endl;
                     arc->_log.push_back(remove{publickey});
                     arc->_members.erase(publickey);
                 }
@@ -73,21 +70,16 @@ namespace psb
                     {
                         if(arc->_members[publickey].address != address)
                         {
-                            std :: cout << "Updating " << publickey << std :: endl;
                             arc->_members[publickey] = {.address = address, .lastkeepalive = now()};
 
                             arc->_log.push_back(remove{publickey});
                             arc->_log.push_back(add{.publickey = publickey, .address = address});
                         }
                         else
-                        {
                             arc->_members[publickey].lastkeepalive = now();
-                            std :: cout << "Renewing " << publickey << " to " << arc->_members[publickey].lastkeepalive << std :: endl;
-                        }
                     }
                     else
                     {
-                        std :: cout << "Adding " << publickey << std :: endl;
                         arc->_members[publickey] = {.address = address, .lastkeepalive = now()};
                         arc->_log.push_back(add{.publickey = publickey, .address = address});
                     }

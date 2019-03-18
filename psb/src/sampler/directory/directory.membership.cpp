@@ -47,6 +47,9 @@ namespace psb
 
     directory :: member directory :: membership :: pick()
     {
+        if(this->_members.empty())
+            exception <membership_empty> :: raise(this);
+
         while(true)
         {
             size_t index = randombytes_uniform(this->_members.size());
