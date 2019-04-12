@@ -67,6 +67,10 @@ namespace psb
         struct batchinfo;
         struct batch;
 
+        // Nested classes
+
+        class block;
+
     private:
     public: // REMOVE ME
 
@@ -78,7 +82,6 @@ namespace psb
 
         // Service nested classes
 
-        class block;
         class sponge;
         class batchset;
         class blockmask;
@@ -152,7 +155,7 @@ namespace psb
     template <typename type> struct broadcast <type> :: batch
     {
         batchinfo info;
-        std :: vector <std :: shared_ptr <std :: vector <message>>> blocks;
+        std :: vector <block> blocks;
     };
 
     template <typename type> struct broadcast <type> :: blockid
