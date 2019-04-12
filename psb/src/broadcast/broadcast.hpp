@@ -4,8 +4,10 @@
 // Includes
 
 #include "broadcast.h"
+#include "broadcast/broadcast.structs.hpp"
 #include "broadcast/broadcast.block.hpp"
 #include "broadcast/broadcast.sponge.hpp"
+#include "broadcast/broadcast.batchset.hpp"
 
 namespace psb
 {

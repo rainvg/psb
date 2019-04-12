@@ -20,6 +20,7 @@ namespace psb
 #include <drop/bytewise/bytewise.hpp>
 #include <drop/chrono/time.hpp>
 #include <drop/thread/guard.hpp>
+#include <drop/data/syncset.hpp>
 
 // Includes
 
@@ -67,6 +68,7 @@ namespace psb
         struct batch;
 
     private:
+    public: // REMOVE ME
 
         // Service nested structs
 
@@ -141,6 +143,10 @@ namespace psb
 
         $bytewise(hash);
         $bytewise(size);
+
+        // Operators
+
+        bool operator == (const batchinfo &) const;
     };
 
     template <typename type> struct broadcast <type> :: batch
@@ -243,6 +249,36 @@ namespace psb
         // Members
 
         sponge _sponge;
+    };
+
+    template <typename type> class broadcast <type> :: batchset
+    {
+        // Members
+
+        syncset <batchinfo> _syncset;
+        std :: vector <batchinfo> _buffer;
+        size_t _locks;
+
+    public:
+
+        // Constructors
+
+        batchset();
+
+        // Getters
+
+        size_t size() const;
+        const std :: vector <batchinfo> & buffer() const;
+
+        // Methods
+
+        void add(const batchinfo &);
+
+        typename syncset <batchinfo> :: round sync() const;
+        typename syncset <batchinfo> :: round sync(const typename syncset <batchinfo> :: view &) const;
+
+        void lock();
+        void unlock();
     };
 };
 
