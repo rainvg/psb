@@ -17,7 +17,7 @@ namespace
 
     $test("broadcast/develop", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 4;
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
 
         broadcast <std :: string> broadcast;
 

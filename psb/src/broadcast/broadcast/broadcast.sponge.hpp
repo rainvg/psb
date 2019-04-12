@@ -13,26 +13,31 @@ namespace psb
 
     template <typename type> broadcast <type> :: sponge :: sponge()
     {
-        this->_messages.reserve(configuration :: sponge :: capacity);
+        this->_blocks.reserve(configuration :: sponge :: capacity);
     }
 
     // Methods
 
     template <typename type> void broadcast <type> :: sponge :: push(const std :: weak_ptr <arc> & warc, const message & message)
     {
-        size_t size;
+        bool first;
+        bool full;
         size_t nonce;
 
         this->_guard([&]()
         {
-            this->_messages.push_back(message);
-            size = this->_messages.size();
+            if((first = (this->_blocks.size() == 0)) || (this->_blocks.back().size() == settings :: block :: size))
+                this->_blocks.push_back(block());
+
+            this->_blocks.back().push(message);
+
+            full = (this->_blocks.size() == configuration :: sponge :: capacity) && (this->_blocks.back().size() == settings :: block :: size);
             nonce = this->_nonce;
         });
 
-        if(size == 1)
+        if(first)
             this->timeout(warc, this->_nonce);
-        else if(size == configuration :: sponge :: capacity)
+        else if(full)
             this->flush(warc, this->_nonce);
     }
 
@@ -42,14 +47,14 @@ namespace psb
     {
         if(auto arc = warc.lock())
         {
-            std :: vector <message> messages;
+            std :: vector <block> blocks;
 
             bool release = this->_guard([&]() // `this` is guaranteed to exist if the `arc` exists.
             {
                 if(this->_nonce == nonce)
                 {
-                    messages.swap(this->_messages);
-                    this->_messages.reserve(configuration :: sponge :: capacity);
+                    blocks.swap(this->_blocks);
+                    this->_blocks.reserve(configuration :: sponge :: capacity);
                     this->_nonce++;
 
                     return true;
@@ -61,7 +66,7 @@ namespace psb
             if(release)
             {
                 broadcast broadcast(arc);
-                broadcast.release(messages);
+                broadcast.release(blocks);
             }
         }
     }

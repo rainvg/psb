@@ -35,6 +35,16 @@ namespace psb
 
         static_assert(bytewise :: constraints :: serializable <type> () && bytewise :: constraints :: deserializable <type> (), "Broadcast type must be serializable and deserializable.");
 
+        // Settings
+
+        struct settings
+        {
+            struct block
+            {
+                static constexpr size_t size = 2;
+            };
+        };
+
     public:
 
         // Configuration
@@ -66,6 +76,7 @@ namespace psb
 
         // Service nested classes
 
+        class block;
         class sponge;
         class batchset;
         class blockmask;
@@ -99,7 +110,7 @@ namespace psb
 
         // Private methods
 
-        void release(std :: vector <message> &);
+        void release(const std :: vector <block> &);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -163,11 +174,44 @@ namespace psb
         std :: unordered_map <uint32_t, std :: vector <std :: weak_ptr <link>>> providers;
     };
 
+    template <typename type> class broadcast <type> :: block
+    {
+        // Service nested structs
+
+        struct arc
+        {
+            std :: array <message, settings :: block :: size> messages;
+            size_t size;
+        };
+
+        // Members
+
+        std :: shared_ptr <arc> _arc;
+
+    public:
+
+        // Constructors
+
+        block();
+
+        // Getters
+
+        const size_t & size() const;
+
+        // Methods
+
+        void push(const message &);
+
+        // Operators
+
+        const message & operator [] (const size_t &) const;
+    };
+
     template <typename type> class broadcast <type> :: sponge
     {
         // Members
 
-        std :: vector <message> _messages;
+        std :: vector <block> _blocks;
         size_t _nonce;
 
         guard <simple> _guard;

@@ -4,6 +4,7 @@
 // Includes
 
 #include "broadcast.h"
+#include "broadcast/broadcast.block.hpp"
 #include "broadcast/broadcast.sponge.hpp"
 
 namespace psb
@@ -12,7 +13,7 @@ namespace psb
 
     // Configuration
 
-    template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 262144;
+    template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 256;
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
 
     // Constructors
@@ -36,11 +37,15 @@ namespace psb
 
     // Private methods
 
-    template <typename type> void broadcast <type> :: release(std :: vector <message> & messages)
+    template <typename type> void broadcast <type> :: release(const std :: vector <block> & blocks)
     {
         std :: cout << "Releasing batch at " << now() << ":" << std :: endl;
-        for(const auto & message : messages)
-            std :: cout << "(" << message.feed << "/" << message.sequence << "): " << message.payload << std :: endl;
+        for(const auto & block : blocks)
+        {
+            for(size_t i = 0; i < block.size(); i++)
+                std :: cout << "(" << block[i].feed << "/" << block[i].sequence << "): " << block[i].payload << std :: endl;
+            std :: cout << std :: endl;
+        }
     }
 };
 
