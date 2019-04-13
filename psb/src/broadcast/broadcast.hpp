@@ -8,6 +8,7 @@
 #include "broadcast/broadcast.block.hpp"
 #include "broadcast/broadcast.sponge.hpp"
 #include "broadcast/broadcast.batchset.hpp"
+#include "broadcast/broadcast.blockmask.hpp"
 
 namespace psb
 {

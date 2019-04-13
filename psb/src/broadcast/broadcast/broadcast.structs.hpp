@@ -17,6 +17,20 @@ namespace psb
     {
         return (this->hash == rho.hash);
     }
+
+    // blockid
+
+    // Operators
+
+    template <typename type> bool broadcast <type> :: blockid :: operator < (const blockid & rho) const
+    {
+        return (this->hash < rho.hash) || ((this->hash == rho.hash) && (this->sequence < rho.sequence));
+    }
+
+    template <typename type> bool broadcast <type> :: blockid :: operator == (const blockid & rho) const
+    {
+        return (this->hash == rho.hash) && (this->sequence == rho.sequence);
+    }
 };
 
 #endif

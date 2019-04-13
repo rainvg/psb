@@ -15,6 +15,46 @@ namespace
 
     using namespace psb;
 
+    // Functions
+
+    void testblockmask(const double & churn, const uint32_t & batchmin, const uint32_t & batchmax, const uint64_t & iterations)
+    {
+        broadcast <std :: string> :: blockmask alice;
+        broadcast <std :: string> :: blockmask bob;
+
+        std :: set <broadcast <std :: string> :: blockid> blocks;
+
+        for(uint64_t iteration = 0; iteration < iterations; iteration++)
+        {
+            broadcast <std :: string> :: batchinfo batchinfo{.hash = iteration, .size = (batchmin + rand() % (batchmax - batchmin))};
+
+            alice.push(batchinfo);
+            bob.push(batchinfo);
+
+            for(uint32_t sequence = 0; sequence < batchinfo.size; sequence++)
+                blocks.insert({.hash = batchinfo.hash, .sequence = sequence});
+
+            uint32_t maxchurn = double(blocks.size()) * churn;
+            uint32_t iterchurn = maxchurn ? (rand() % maxchurn) : maxchurn;
+
+            std :: unordered_set <broadcast <std :: string> :: blockid, shorthash> alicepop;
+
+            for(uint32_t i = 0; i < iterchurn; i++)
+                alicepop.insert(*(std :: next(blocks.begin(), rand() % blocks.size())));
+
+            for(const auto & blockid : alicepop)
+                blocks.erase(blockid);
+
+            auto offlist = alice.pop(alicepop);
+            auto bobpop = bob.pop(offlist);
+
+            if(alicepop != bobpop)
+                throw "Different blockids are returned when `pop`ing a set or an offlist.";
+        }
+    }
+
+    // Tests
+
     $test("broadcast/sponge", []
     {
         broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
@@ -44,50 +84,63 @@ namespace
 
     $test("broadcast/batchset", []
     {
-        broadcast <std :: string> :: batchset alice;
+        broadcast <std :: string> :: batchset batchset;
 
-        alice.add({.hash = std :: string("cat"), .size = 4});
-        alice.add({.hash = std :: string("dog"), .size = 6});
+        batchset.add({.hash = std :: string("cat"), .size = 4});
+        batchset.add({.hash = std :: string("dog"), .size = 6});
 
-        if(alice.size() != 2)
+        if(batchset.size() != 2)
             throw "Wrong size after unlocked add.";
 
-        if(alice.buffer().size() != 0)
+        if(batchset.buffer().size() != 0)
             throw "Buffer is not empty after unlocked add.";
 
-        alice.lock();
-        alice.add({.hash = std :: string("mouse"), .size = 4});
+        batchset.lock();
+        batchset.add({.hash = std :: string("mouse"), .size = 4});
 
-        if(alice.size() != 3)
+        if(batchset.size() != 3)
             throw "Wrong size after locked add.";
 
-        if(alice.buffer().size() != 1 && alice.buffer().back().hash != hash(std :: string("mouse")))
+        if(batchset.buffer().size() != 1 && batchset.buffer().back().hash != hash(std :: string("mouse")))
             throw "Wrong buffer after locked add.";
 
-        alice.lock();
-        alice.add({.hash = std :: string("hamster"), .size = 4});
+        batchset.lock();
+        batchset.add({.hash = std :: string("hamster"), .size = 4});
 
-        if(alice.size() != 4)
+        if(batchset.size() != 4)
             throw "Wrong size after locked add.";
 
-        if(alice.buffer().size() != 2 && alice.buffer().back().hash != hash(std :: string("hamster")))
+        if(batchset.buffer().size() != 2 && batchset.buffer().back().hash != hash(std :: string("hamster")))
             throw "Wrong buffer after locked add.";
 
-        alice.unlock();
-        alice.add({.hash = std :: string("lizard"), .size = 4});
+        batchset.unlock();
+        batchset.add({.hash = std :: string("lizard"), .size = 4});
 
-        if(alice.size() != 5)
+        if(batchset.size() != 5)
             throw "Wrong size after locked add.";
 
-        if(alice.buffer().size() != 3 && alice.buffer().back().hash != hash(std :: string("lizard")))
+        if(batchset.buffer().size() != 3 && batchset.buffer().back().hash != hash(std :: string("lizard")))
             throw "Wrong buffer after locked add.";
 
-        alice.unlock();
+        batchset.unlock();
 
-        if(alice.size() != 5)
+        if(batchset.size() != 5)
             throw "Wrong size after unlocking.";
 
-        if(alice.buffer().size())
+        if(batchset.buffer().size())
             throw "Buffer not flushed after unlocking.";
+    });
+
+    $test("broadcast/blockmask", []
+    {
+        testblockmask(0., 8, 12, 1024);
+
+        testblockmask(0.1, 8, 12, 16384);
+        testblockmask(0.5, 8, 12, 16384);
+        testblockmask(1., 8, 12, 16384);
+
+        testblockmask(0.1, 1024, 1536, 128);
+        testblockmask(0.5, 1024, 1536, 128);
+        testblockmask(1., 1024, 1536, 128);
     });
 };

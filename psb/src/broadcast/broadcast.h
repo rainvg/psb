@@ -2,6 +2,13 @@
 
 namespace psb
 {
+    // Tags
+
+    class malformed_mask;
+    class out_of_range;
+
+    // Classes
+
     template <typename> class broadcast;
 };
 
@@ -14,6 +21,7 @@ namespace psb
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <drop/crypto/signature.hpp>
 #include <drop/crypto/hash.hpp>
@@ -21,6 +29,8 @@ namespace psb
 #include <drop/chrono/time.hpp>
 #include <drop/thread/guard.hpp>
 #include <drop/data/syncset.hpp>
+#include <drop/data/offlist.hpp>
+#include <drop/crypto/shorthash.hpp>
 
 // Includes
 
@@ -160,8 +170,20 @@ namespace psb
 
     template <typename type> struct broadcast <type> :: blockid
     {
+        // Public members
+
         hash hash;
         uint32_t sequence;
+
+        // Bytewise
+
+        $bytewise(hash);
+        $bytewise(sequence);
+
+        // Operators
+
+        bool operator < (const blockid &) const;
+        bool operator == (const blockid &) const;
     };
 
     template <typename type> struct broadcast <type> ::  announcement
@@ -282,6 +304,40 @@ namespace psb
 
         void lock();
         void unlock();
+    };
+
+    template <typename type> class broadcast <type> :: blockmask
+    {
+        // Settings
+
+        struct settings
+        {
+            static constexpr size_t defragthreshold = 1;
+        };
+
+        // Members
+
+        std :: vector <optional <blockid>> _blocks;
+        size_t _size;
+
+    public:
+
+        // Constructors
+
+        blockmask();
+
+        // Methods
+
+        void push(const batchinfo &);
+
+        offlist pop(const std :: unordered_set <blockid, shorthash> &);
+        std :: unordered_set <blockid, shorthash> pop(const offlist &);
+
+    private:
+
+        // Private methods
+
+        void defrag();
     };
 };
 
