@@ -265,17 +265,6 @@ namespace psb
         promise <void> timeout(std :: weak_ptr <arc>, size_t);
     };
 
-    template <typename type> class broadcast <type> :: arc
-    {
-        // Friends
-
-        template <typename> friend class broadcast;
-
-        // Members
-
-        sponge _sponge;
-    };
-
     template <typename type> class broadcast <type> :: batchset
     {
         // Members
@@ -338,6 +327,29 @@ namespace psb
         // Private methods
 
         void defrag();
+    };
+
+    template <typename type> class broadcast <type> :: link
+    {
+    };
+
+    template <typename type> class broadcast <type> :: arc
+    {
+        // Friends
+
+        template <typename> friend class broadcast;
+
+        // Members
+
+        sponge _sponge;
+
+        std :: unordered_map <blockid, block, shorthash> _blocks;
+        batchset _delivered;
+
+        std :: unordered_map <hash, transfer, shorthash> _transfers;
+        std :: unordered_set <std :: shared_ptr <link>> _links;
+
+        guard <simple> _guard;
     };
 };
 

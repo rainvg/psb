@@ -143,4 +143,9 @@ namespace
         testblockmask(0.5, 1024, 1536, 128);
         testblockmask(1., 1024, 1536, 128);
     });
+
+    $test("broadcast/develop", []
+    {
+        broadcast <std :: string> broadcast;
+    });
 };
