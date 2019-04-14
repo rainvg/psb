@@ -7,6 +7,7 @@ namespace psb
     class malformed_mask;
     class out_of_range;
     class dead_link;
+    class arc_expired;
 
     // Classes
 
@@ -23,6 +24,7 @@ namespace psb
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 
 #include <drop/crypto/signature.hpp>
 #include <drop/crypto/hash.hpp>
@@ -118,10 +120,16 @@ namespace psb
 
         broadcast(const std :: shared_ptr <arc> &);
 
+        // Private getters
+
+        const batchset & delivered() const;
+        bool announced(const hash &) const;
+
     public:
 
         // Methods
 
+        template <typename etype, std :: enable_if_t <std :: is_same <etype, batch> :: value> * = nullptr> void on(const std :: function <void (const batch &)> &);
         void publish(const class signer :: publickey &, const uint32_t &, const type &, const signature &);
 
     private:
@@ -129,8 +137,18 @@ namespace psb
 
         // Private methods
 
-        void link(const connection &);
+        void spot(const batchinfo &);
+        void announce(const announcement &);
+
+        void available(const hash &, const std :: shared_ptr <link> &);
+        void available(const blockid &, const std :: shared_ptr <link> &);
+
+        void dispatch(const blockid &, const block &);
+        void deliver(const batchinfo &);
+
         void release(const std :: vector <block> &);
+
+        promise <void> link(const connection &);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -292,6 +310,7 @@ namespace psb
         // Methods
 
         void add(const batchinfo &);
+        bool find(const batchinfo &) const;
 
         typename syncset <batchinfo> :: round sync() const;
         typename syncset <batchinfo> :: round sync(const typename syncset <batchinfo> :: view &) const;
@@ -338,7 +357,7 @@ namespace psb
     {
         // Members
 
-        enum {setup, alive, dead} _state;
+        bool _alive;
 
         struct
         {
@@ -376,7 +395,7 @@ namespace psb
 
         // Services
 
-        promise <void> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+        promise <std :: vector <batchinfo>> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
 
         promise <void> send(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         promise <void> receive(std :: weak_ptr <arc>, std :: shared_ptr <link>);
@@ -393,10 +412,14 @@ namespace psb
         sponge _sponge;
 
         std :: unordered_map <blockid, block, shorthash> _blocks;
+
+        std :: unordered_set <hash> _announced;
         batchset _delivered;
 
         std :: unordered_map <hash, transfer, shorthash> _transfers;
         std :: unordered_set <std :: shared_ptr <class link>> _links;
+
+        std :: vector <std :: function <void (const batch &)>> _handlers;
 
         guard <simple> _guard;
     };

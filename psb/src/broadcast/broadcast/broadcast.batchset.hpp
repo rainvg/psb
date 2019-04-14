@@ -37,6 +37,11 @@ namespace psb
             this->_buffer.push_back(batch);
     }
 
+    template <typename type> bool broadcast <type> :: batchset :: find(const batchinfo & batch) const
+    {
+        return this->_syncset.find(batch) || (std :: find(this->_buffer.begin(), this->_buffer.end(), batch) != this->_buffer.end());
+    }
+
     template <typename type> typename syncset <typename broadcast <type> :: batchinfo> :: round broadcast <type> :: batchset :: sync() const
     {
         return this->_syncset.sync();

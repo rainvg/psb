@@ -11,7 +11,7 @@ namespace psb
 
     // Constructors
 
-    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _connection(connection), _state(setup)
+    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _connection(connection), _alive(true)
     {
     }
 
@@ -21,13 +21,10 @@ namespace psb
     {
         bool post = this->_guard([&]()
         {
-            if(this->_state == alive)
-            {
+            if(this->_alive)
                 this->_announcements.push_back(announcement);
-                return true;
-            }
-            else
-                return false;
+
+            return this->_alive;
         });
 
         if(post)
@@ -38,13 +35,10 @@ namespace psb
     {
         bool post = this->_guard([&]()
         {
-            if(this->_state == alive)
-            {
+            if(this->_alive)
                 this->_advertisements.insert(block);
-                return true;
-            }
-            else
-                return false;
+
+            return this->_alive;
         });
 
         if(post)
@@ -55,7 +49,7 @@ namespace psb
     {
         this->_guard([&]()
         {
-            if(this->_state != alive)
+            if(!(this->_alive))
                 exception <dead_link> :: raise(this);
 
             this->_requests.local.push_back(block);
@@ -66,14 +60,66 @@ namespace psb
 
     template <typename type> void broadcast <type> :: link :: start(const std :: weak_ptr <arc> & warc, const std :: shared_ptr <link> & link)
     {
-        this->sync(warc, link);
+        this->send(warc, link);
+        this->receive(warc, link);
+    }
+
+    template <typename type> promise <std :: vector <typename broadcast <type> :: batchinfo>> broadcast <type> :: link :: sync(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
+    {
+        if(this->_connection.tiebreak())
+        {
+            optional <typename syncset <batchinfo> :: round> round;
+
+            if(auto arc = warc.lock())
+            {
+                broadcast broadcast = arc;
+                round = broadcast.delivered().sync();
+            }
+
+            if(!round)
+                exception <arc_expired> :: raise(this);
+
+            co_await this->_connection.send((*round).view);
+        }
+
+        std :: vector <batchinfo> add;
+
+        while(true)
+        {
+            auto view = co_await this->_connection.template receive <typename syncset <batchinfo> :: view> ();
+
+            if(view.size() == 0)
+                break;
+
+            optional <typename syncset <batchinfo> :: round> round;
+
+            if(auto arc = warc.lock())
+            {
+                broadcast broadcast = arc;
+                round = broadcast.delivered().sync(view);
+            }
+
+            if(!round)
+                exception <arc_expired> :: raise(this);
+
+            add.insert(add.end(), (*round).add.begin(), (*round).add.end());
+            co_await this->_connection.send((*round).view);
+
+            if((*round).view.size() == 0)
+                break;
+        }
+
+        co_return add;
     }
 
     // Services
 
-    template <typename type> promise <void> broadcast <type> :: link :: sync(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
+    template <typename type> promise <void> broadcast <type> :: link :: send(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
     {
+    }
 
+    template <typename type> promise <void> broadcast <type> :: link :: receive(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
+    {
     }
 };
 
