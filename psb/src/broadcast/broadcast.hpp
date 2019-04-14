@@ -9,6 +9,7 @@
 #include "broadcast/broadcast.sponge.hpp"
 #include "broadcast/broadcast.batchset.hpp"
 #include "broadcast/broadcast.blockmask.hpp"
+#include "broadcast/broadcast.link.hpp"
 
 namespace psb
 {
@@ -39,6 +40,18 @@ namespace psb
     }
 
     // Private methods
+
+    template <typename type> void broadcast <type> :: link(const connection & connection)
+    {
+        auto link = std :: make_shared <class link> (connection);
+
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_links.insert(link);
+        });
+
+        link->start();
+    }
 
     template <typename type> void broadcast <type> :: release(const std :: vector <block> & blocks)
     {

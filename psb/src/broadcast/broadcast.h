@@ -6,6 +6,7 @@ namespace psb
 
     class malformed_mask;
     class out_of_range;
+    class dead_link;
 
     // Classes
 
@@ -31,6 +32,8 @@ namespace psb
 #include <drop/data/syncset.hpp>
 #include <drop/data/offlist.hpp>
 #include <drop/crypto/shorthash.hpp>
+#include <drop/async/pipe.hpp>
+#include <drop/network/connection.hpp>
 
 // Includes
 
@@ -122,9 +125,11 @@ namespace psb
         void publish(const class signer :: publickey &, const uint32_t &, const type &, const signature &);
 
     private:
+    public: // REMOVE ME
 
         // Private methods
 
+        void link(const connection &);
         void release(const std :: vector <block> &);
     };
 
@@ -202,7 +207,7 @@ namespace psb
     template <typename type> struct broadcast <type> ::  transfer
     {
         uint32_t size;
-        std :: unordered_map <uint32_t, std :: vector <std :: weak_ptr <link>>> providers;
+        std :: unordered_map <uint32_t, std :: vector <std :: weak_ptr <class link>>> providers;
     };
 
     template <typename type> class broadcast <type> :: block
@@ -331,6 +336,50 @@ namespace psb
 
     template <typename type> class broadcast <type> :: link
     {
+        // Members
+
+        enum {setup, alive, dead} _state;
+
+        struct
+        {
+            blockmask local;
+            blockmask remote;
+        } _blockmasks;
+
+        std :: vector <announcement> _announcements;
+        std :: unordered_set <blockid, shorthash> _advertisements;
+
+        struct
+        {
+            std :: vector <blockid> local;
+            std :: vector <blockid> remote;
+        } _requests;
+
+        connection _connection;
+
+        pipe <void> _pipe;
+        guard <simple> _guard;
+
+    public:
+
+        // Constructors
+
+        link(const connection &);
+
+        // Methods
+
+        void announce(const announcement &);
+        void advertise(const blockid &);
+        void request(const blockid &);
+
+        void start(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
+
+        // Services
+
+        promise <void> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+
+        promise <void> send(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+        promise <void> receive(std :: weak_ptr <arc>, std :: shared_ptr <link>);
     };
 
     template <typename type> class broadcast <type> :: arc
@@ -347,7 +396,7 @@ namespace psb
         batchset _delivered;
 
         std :: unordered_map <hash, transfer, shorthash> _transfers;
-        std :: unordered_set <std :: shared_ptr <link>> _links;
+        std :: unordered_set <std :: shared_ptr <class link>> _links;
 
         guard <simple> _guard;
     };
