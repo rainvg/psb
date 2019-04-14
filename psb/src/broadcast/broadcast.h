@@ -5,6 +5,8 @@ namespace psb
     // Tags
 
     class malformed_mask;
+    class malformed_block;
+    class ghost_request;
     class out_of_range;
     class dead_link;
     class arc_expired;
@@ -22,6 +24,7 @@ namespace psb
 #include <iostream> // REMOVE ME
 #include <memory>
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <unordered_set>
 #include <functional>
@@ -122,6 +125,8 @@ namespace psb
 
         // Private getters
 
+        block block(const blockid &) const;
+
         const batchset & delivered() const;
         bool announced(const hash &) const;
 
@@ -143,12 +148,13 @@ namespace psb
         void available(const hash &, const std :: shared_ptr <link> &);
         void available(const blockid &, const std :: shared_ptr <link> &);
 
-        void dispatch(const blockid &, const block &);
+        void dispatch(const blockid &, const class block &);
         void deliver(const batchinfo &);
 
-        void release(const std :: vector <block> &);
+        void release(const std :: vector <class block> &);
 
         promise <void> link(const connection &);
+        void unlink(const std :: shared_ptr <class link> &);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -188,7 +194,7 @@ namespace psb
     template <typename type> struct broadcast <type> :: batch
     {
         batchinfo info;
-        std :: vector <block> blocks;
+        std :: vector <class block> blocks;
     };
 
     template <typename type> struct broadcast <type> :: blockid
@@ -247,6 +253,7 @@ namespace psb
         // Constructors
 
         block();
+        block(const std :: vector <message> &);
 
         // Getters
 
@@ -265,7 +272,7 @@ namespace psb
     {
         // Members
 
-        std :: vector <block> _blocks;
+        std :: vector <class block> _blocks;
         size_t _nonce;
 
         guard <simple> _guard;
@@ -355,6 +362,16 @@ namespace psb
 
     template <typename type> class broadcast <type> :: link
     {
+        // Typedefs
+
+        typedef variant
+        <
+            std :: vector <announcement>,
+            offlist,
+            std :: vector <blockid>,
+            std :: vector <message>
+        > transaction;
+
         // Members
 
         bool _alive;
@@ -370,8 +387,9 @@ namespace psb
 
         struct
         {
-            std :: vector <blockid> local;
-            std :: vector <blockid> remote;
+            std :: vector <blockid> pending;
+            std :: deque <blockid> local;
+            std :: deque <blockid> remote;
         } _requests;
 
         connection _connection;
@@ -391,11 +409,16 @@ namespace psb
         void advertise(const blockid &);
         void request(const blockid &);
 
+        promise <std :: vector <batchinfo>> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         void start(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
 
-        // Services
+    private:
 
-        promise <std :: vector <batchinfo>> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+        // Private methods
+
+        void shutdown(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
+
+        // Services
 
         promise <void> send(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         promise <void> receive(std :: weak_ptr <arc>, std :: shared_ptr <link>);
@@ -411,9 +434,9 @@ namespace psb
 
         sponge _sponge;
 
-        std :: unordered_map <blockid, block, shorthash> _blocks;
+        std :: unordered_map <blockid, class block, shorthash> _blocks;
 
-        std :: unordered_set <hash> _announced;
+        std :: unordered_set <hash, shorthash> _announced;
         batchset _delivered;
 
         std :: unordered_map <hash, transfer, shorthash> _transfers;

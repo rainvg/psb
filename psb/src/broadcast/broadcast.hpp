@@ -34,6 +34,14 @@ namespace psb
 
     // Private getters
 
+    template <typename type> class broadcast <type> :: block broadcast <type> :: block(const blockid & blockid) const
+    {
+        return this->_arc->_guard([&]()
+        {
+            return this->_arc->_blocks[blockid];
+        });
+    }
+
     template <typename type> const typename broadcast <type> :: batchset & broadcast <type> :: delivered() const
     {
         return this->_arc->_delivered; // This is called only when lock > 0
@@ -78,7 +86,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: announce(const announcement & announcement)
     {
-        this->_arc->_announced.insert(announcement.info.hash);
+        this->_arc->_announced.insert(announcement.batch.hash);
         for(const auto & link : this->_arc->_links)
             link->announce(announcement);
     }
@@ -116,7 +124,7 @@ namespace psb
         });
     }
 
-    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const block & block)
+    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const class block & block)
     {
         uint32_t size;
 
@@ -162,7 +170,7 @@ namespace psb
             handler(batch);
     }
 
-    template <typename type> void broadcast <type> :: release(const std :: vector <block> & blocks)
+    template <typename type> void broadcast <type> :: release(const std :: vector <class block> & blocks)
     {
         hash :: state hasher;
 
@@ -251,6 +259,14 @@ namespace psb
                 });
             }
         }
+    }
+
+    template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link)
+    {
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_links.erase(link);
+        });
     }
 };
 

@@ -15,6 +15,15 @@ namespace psb
     {
     }
 
+    template <typename type> broadcast <type> :: block :: block(const std :: vector <message> & messages) : block()
+    {
+        if(messages.size() > settings :: block :: size)
+            exception <malformed_block> :: raise(this);
+
+        for(const auto & message : messages)
+            this->push(message);
+    }
+
     // Getters
 
     template <typename type> const size_t & broadcast <type> :: block :: size() const
@@ -35,7 +44,6 @@ namespace psb
     {
         return this->_arc->messages[index];
     }
-
 };
 
 #endif

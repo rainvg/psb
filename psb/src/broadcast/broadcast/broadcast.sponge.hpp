@@ -27,7 +27,7 @@ namespace psb
         this->_guard([&]()
         {
             if((first = (this->_blocks.size() == 0)) || (this->_blocks.back().size() == settings :: block :: size))
-                this->_blocks.push_back(block());
+                this->_blocks.push_back((class block){});
 
             this->_blocks.back().push(message);
 
@@ -47,7 +47,7 @@ namespace psb
     {
         if(auto arc = warc.lock())
         {
-            std :: vector <block> blocks;
+            std :: vector <class block> blocks;
 
             bool release = this->_guard([&]() // `this` is guaranteed to exist if the `arc` exists.
             {
