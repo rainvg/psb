@@ -172,9 +172,9 @@ namespace psb
                 if(announcements.size())
                 {
                     for(const auto & announcement : announcements)
-                        this->_blockmasks.local.push(announcement);
+                        this->_blockmasks.local.push(announcement.batch);
 
-                    co_await this->_connection.send(announcements);
+                    co_await this->_connection.template send <transaction> (announcements);
                     continue;
                 }
 
@@ -182,29 +182,29 @@ namespace psb
                 {
                     auto offlist = this->_blockmasks.local.pop(advertisements);
 
-                    co_await this->_connection.send(offlist);
+                    co_await this->_connection.template send <transaction> (offlist);
                     continue;
                 }
 
                 if(pending.size())
                 {
-                    co_await this->_connection.send(pending);
+                    co_await this->_connection.template send <transaction> (pending);
                     continue;
                 }
 
                 if(block)
                 {
                     std :: vector <message> messages;
-                    messages.reserve(block.size());
+                    messages.reserve((*block).size());
 
-                    for(uint32_t sequence; sequence < block.size(); sequence++)
-                        messages.push_back(block[sequence]);
+                    for(uint32_t sequence; sequence < (*block).size(); sequence++)
+                        messages.push_back((*block)[sequence]);
 
-                    co_await this->_connection.send(messages);
+                    co_await this->_connection.template send <transaction> (messages);
                     continue;
                 }
 
-                this->_pipe.wait();
+                co_await this->_pipe.wait();
             }
         }
         catch(...)
@@ -229,7 +229,7 @@ namespace psb
                     {
                         for(const auto & announcement : announcements)
                         {
-                            this->_blockmasks.remote.push(announcement);
+                            this->_blockmasks.remote.push(announcement.batch);
                             broadcast.spot(announcement.batch);
 
                             if(announcement.available)
@@ -247,20 +247,20 @@ namespace psb
                         });
                     }, [&](const std :: vector <message> & messages)
                     {
-                        class block block = messages;
-                        blockid blockid = this->_guard([&]()
+                        blockid blockid;
+
+                        this->_guard([&]()
                         {
                             if(this->_requests.local.size())
                             {
-                                struct blockid blockid = this->_requests.local.front();
+                                blockid = this->_requests.local.front();
                                 this->_requests.local.pop_front();
-                                return blockid;
                             }
                             else
                                 exception <ghost_request> :: raise(this);
                         });
 
-                        broadcast.dispatch(blockid, block);
+                        broadcast.dispatch(blockid, messages);
                     });
                 }
                 else

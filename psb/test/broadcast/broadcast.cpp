@@ -5,6 +5,9 @@
 #include <iostream>
 #include <string>
 
+#include <drop/network/connection.hpp>
+#include <drop/network/tcp.hpp>
+
 // Includes
 
 #include "psb/broadcast/broadcast.hpp"
@@ -50,6 +53,18 @@ namespace
 
             if(alicepop != bobpop)
                 throw "Different blockids are returned when `pop`ing a set or an offlist.";
+        }
+    }
+
+    void cli(broadcast <std :: string> & broadcast)
+    {
+        while(true)
+        {
+            std :: string message;
+            std :: getline(std :: cin, message);
+
+            signer signer;
+            broadcast.publish(signer.publickey(), rand(), message, signer.sign(message));
         }
     }
 
@@ -144,8 +159,36 @@ namespace
         testblockmask(1., 1024, 1536, 128);
     });
 
-    $test("broadcast/develop", []
+    $test("broadcast/alice", []
     {
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
         broadcast <std :: string> broadcast;
+
+        std :: thread receiver([&]()
+        {
+            auto listener = tcp :: listen(1234);
+            
+            auto connection = listener.acceptsync();
+            connection.securesync <peer> (keyexchanger());
+
+            std :: cout << "Connection incoming. Establishing link." << std :: endl;
+
+            broadcast.link(connection);
+        });
+
+        cli(broadcast);
+    });
+
+    $test("broadcast/bob", []
+    {
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
+        broadcast <std :: string> broadcast;
+
+        auto connection = tcp :: connectsync({"127.0.0.1", 1234});
+        connection.securesync <peer> (keyexchanger());
+
+        broadcast.link(connection);
+
+        cli(broadcast);
     });
 };

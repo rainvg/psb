@@ -99,11 +99,11 @@ namespace psb
 
             if(transfer != this->_arc->_transfers.end())
             {
-                for(uint32_t sequence = 0; sequence < transfer->size; sequence++)
+                for(uint32_t sequence = 0; sequence < transfer->second.providers.size(); sequence++)
                 {
-                    auto block = transfer->providers.find(sequence);
-                    if(block != transfer->providers.end())
-                        block->push_back(link);
+                    auto block = transfer->second.providers.find(sequence);
+                    if(block != transfer->second.providers.end())
+                        block->second.push_back(link);
                 }
             }
         });
@@ -117,9 +117,9 @@ namespace psb
 
             if(transfer != this->_arc->_transfers.end())
             {
-                auto provider = transfer->providers.find(block.sequence);
-                if(provider != transfer->providers.end())
-                    provider->push_back(link);
+                auto provider = transfer->second.providers.find(block.sequence);
+                if(provider != transfer->second.providers.end())
+                    provider->second.push_back(link);
             }
         });
     }
@@ -172,13 +172,18 @@ namespace psb
 
     template <typename type> void broadcast <type> :: release(const std :: vector <class block> & blocks)
     {
+        std :: cout << "Releasing " << blocks.size() << " blocks:" << std :: endl;
         hash :: state hasher;
 
         for(const auto & block : blocks)
             for(size_t index = 0; index < block.size(); index++) // TODO: (nice-to-have) add std :: iterator integration to block
+            {
+                std :: cout << "[" << index << "] " << block[index].feed << "." << block[index].sequence << ": " << block[index].payload << std :: endl;
                 hasher.update(block[index]);
+            }
 
         batchinfo info = {.hash = hasher.finalize(), .size = static_cast <uint32_t> (blocks.size())};
+        std :: cout << "Batch info: " << info.hash << " (" << info.size << ")" << std :: endl;
 
         enum {delivered, transferring, released} state = this->_arc->_guard([&]()
         {
@@ -216,7 +221,7 @@ namespace psb
 
         try
         {
-            std :: vector <batchinfo> sync = co_await link->sync(warc);
+            std :: vector <batchinfo> sync = co_await link->sync(warc, link);
 
             if(auto arc = warc.lock())
             {
