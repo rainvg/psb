@@ -18,7 +18,7 @@ namespace psb
     // Configuration
 
     template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 256;
-    template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
+    template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 0.5_s;
 
     // Constructors
 

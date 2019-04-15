@@ -172,7 +172,7 @@ namespace
 
     $test("broadcast/alice", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
         broadcast <std :: string> mybroadcast;
         mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
 
@@ -196,7 +196,7 @@ namespace
 
     $test("broadcast/bob", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
         broadcast <std :: string> mybroadcast;
         mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
 

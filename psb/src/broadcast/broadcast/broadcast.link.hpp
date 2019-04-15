@@ -138,8 +138,6 @@ namespace psb
         {
             while(this->_guard([&](){return this->_alive;}))
             {
-                std :: cout << "Send loop: " << this << std :: endl;
-
                 std :: vector <announcement> announcements;
                 std :: unordered_set <blockid, shorthash> advertisements;
                 std :: vector <blockid> requests;
@@ -151,8 +149,6 @@ namespace psb
 
                     this->_guard([&]()
                     {
-                        std :: cout << "Into guard" << std :: endl;
-
                         if(this->_announcements.size())
                             announcements.swap(this->_announcements);
                         else if(this->_advertisements.size())
@@ -171,14 +167,10 @@ namespace psb
                     });
                 }
                 else
-                {
-                    std :: cout << "ARC EXPIRED!?" << std :: endl;
                     exception <arc_expired> :: raise(this);
-                }
 
                 if(announcements.size())
                 {
-                    std :: cout << "A" << std :: endl;
                     for(const auto & announcement : announcements)
                         this->_blockmasks.local.push(announcement.batch);
 
@@ -188,7 +180,6 @@ namespace psb
 
                 if(advertisements.size())
                 {
-                    std :: cout << "B" << std :: endl;
                     auto offlist = this->_blockmasks.local.pop(advertisements);
 
                     co_await this->_connection.template send <transaction> (offlist);
@@ -197,14 +188,12 @@ namespace psb
 
                 if(requests.size())
                 {
-                    std :: cout << "C" << std :: endl;
                     co_await this->_connection.template send <transaction> (requests);
                     continue;
                 }
 
                 if(block)
                 {
-                    std :: cout << "D" << std :: endl;
                     std :: vector <message> messages;
                     messages.reserve((*block).size());
 
@@ -215,18 +204,13 @@ namespace psb
                     continue;
                 }
 
-                std :: cout << "Sleeping on pipe" << std :: endl;
                 co_await this->_pipe.wait();
-                std :: cout << "Out of pipe" << std :: endl;
             }
         }
         catch(...)
         {
-            std :: cout << "Send: shutting down!" << std :: endl;
             this->shutdown(warc, link);
         }
-
-        std :: cout << "Goodbye from send." << std :: endl;
     }
 
     template <typename type> promise <void> broadcast <type> :: link :: receive(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
@@ -287,11 +271,8 @@ namespace psb
         }
         catch(...)
         {
-            std :: cout << "Receive: shutting down!" << std :: endl;
             this->shutdown(warc, link);
         }
-
-        std :: cout << "Goodbye from receive" << std :: endl;
     }
 };
 
