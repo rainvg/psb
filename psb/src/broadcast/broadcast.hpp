@@ -89,7 +89,11 @@ namespace psb
     template <typename type> void broadcast <type> :: announce(const announcement & announcement)
     {
         this->_arc->_announced.insert(announcement.batch.hash);
-        for(const auto & link : this->_arc->_links)
+
+        for(const auto & link : this->_arc->_links.fast)
+            link->announce(announcement);
+
+        for(const auto & link : this->_arc->_links.secure)
             link->announce(announcement);
     }
 
@@ -143,7 +147,14 @@ namespace psb
             auto transfer = this->_arc->_transfers.find(blockid.hash);
             if(transfer != this->_arc->_transfers.end())
             {
+                for(const auto & link : this->_arc->_links.fast)
+                    link->advertise(blockid);
+
+                for(const auto & link : this->_arc->_links.secure)
+                    link->advertise(blockid);
+
                 transfer->second.providers.erase(blockid.sequence);
+
                 std :: cout << "Missing blocks: " << transfer->second.providers.size() << std :: endl;
                 if(transfer->second.providers.size() == 0)
                 {
@@ -220,7 +231,7 @@ namespace psb
             this->deliver(info);
     }
 
-    template <typename type> promise <void> broadcast <type> :: link(const connection & connection)
+    template <typename type> template <enum broadcast <type> :: lane linklane> promise <void> broadcast <type> :: link(const connection & connection)
     {
         std :: weak_ptr <arc> warc = this->_arc;
         auto link = std :: make_shared <class link> (connection);
@@ -258,7 +269,14 @@ namespace psb
                     }
 
                     arc->_delivered.unlock();
-                    arc->_links.insert(link);
+
+                    if constexpr (linklane == fast)
+                    {
+                        arc->_links.fast.insert(link);
+                        arc->_links.idle.insert(link);
+                    }
+                    else
+                        arc->_links.secure.insert(link);
                 });
 
                 for(const auto & batch : sync)
@@ -281,9 +299,13 @@ namespace psb
 
     template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link)
     {
+        std :: cout << "Unlinking " << link << "." << std :: endl;
+
         this->_arc->_guard([&]()
         {
-            this->_arc->_links.erase(link);
+            this->_arc->_links.fast.erase(link);
+            this->_arc->_links.secure.erase(link);
+            this->_arc->_links.idle.erase(link);
         });
     }
 

@@ -92,6 +92,10 @@ namespace psb
     private:
     public: // REMOVE ME
 
+        // Service nested enum
+
+        enum lane {fast, secure};
+
         // Service nested structs
 
         struct blockid;
@@ -153,7 +157,7 @@ namespace psb
 
         void release(const std :: vector <class block> &);
 
-        promise <void> link(const connection &);
+        template <lane> promise <void> link(const connection &);
         void unlink(const std :: shared_ptr <class link> &);
 
         // Services
@@ -355,6 +359,12 @@ namespace psb
 
         blockmask();
 
+        // REMOVE ME
+        ~blockmask()
+        {
+            std :: cout << "Destroying blockmask: " << this << std :: endl;
+        }
+
         // Methods
 
         void push(const batchinfo &);
@@ -412,6 +422,36 @@ namespace psb
 
         link(const connection &);
 
+        // REMOVE ME
+        ~link()
+        {
+            std :: cout << "Destroying link " << this << std :: endl;
+
+            std :: cout << "A" << std :: endl;
+            std :: cout << &(this->_blockmasks.local) << std :: endl;
+            std :: cout << "B" << std :: endl;
+            std :: cout << &(this->_blockmasks.remote) << std :: endl;
+            std :: cout << "C" << std :: endl;
+            std :: cout << &(this->_announcements) << std :: endl;
+            std :: cout << "D" << std :: endl;
+            std :: cout << &(this->_advertisements) << std :: endl;
+            std :: cout << "E" << std :: endl;
+            std :: cout << &(this->_requests.pending) << std :: endl;
+            std :: cout << "F" << std :: endl;
+            std :: cout << &(this->_requests.local) << std :: endl;
+            std :: cout << "G" << std :: endl;
+            std :: cout << &(this->_requests.remote) << std :: endl;
+            std :: cout << "H" << std :: endl;
+            std :: cout << &(this->_connection) << std :: endl;
+            std :: cout << "I" << std :: endl;
+            std :: cout << &(this->_pipe) << std :: endl;
+            std :: cout << "J" << std :: endl;
+            std :: cout << &(this->_guard) << std :: endl;
+            std :: cout << "K" << std :: endl;
+
+            std :: cout << "After this, the void." << std :: endl;
+        }
+
         // Methods
 
         void announce(const announcement &);
@@ -449,7 +489,13 @@ namespace psb
         batchset _delivered;
 
         std :: unordered_map <hash, transfer, shorthash> _transfers;
-        std :: unordered_set <std :: shared_ptr <class link>> _links;
+
+        struct
+        {
+            std :: unordered_set <std :: shared_ptr <class link>> fast;
+            std :: unordered_set <std :: shared_ptr <class link>> secure;
+            std :: unordered_set <std :: shared_ptr <class link>> idle;
+        } _links;
 
         std :: vector <std :: function <void (const batch &)>> _handlers;
 

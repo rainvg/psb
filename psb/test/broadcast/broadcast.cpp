@@ -180,12 +180,15 @@ namespace
         {
             auto listener = tcp :: listen(1234);
 
-            auto connection = listener.acceptsync();
-            connection.securesync <peer> (keyexchanger());
+            while(true)
+            {
+                auto connection = listener.acceptsync();
+                connection.securesync <peer> (keyexchanger());
 
-            std :: cout << "Connection incoming. Establishing link." << std :: endl;
+                std :: cout << "Connection incoming. Establishing link." << std :: endl;
 
-            mybroadcast.link(connection);
+                mybroadcast.link <broadcast <std :: string> :: fast> (connection);
+            }
         });
 
         cli(mybroadcast);
@@ -200,7 +203,7 @@ namespace
         auto connection = tcp :: connectsync({"127.0.0.1", 1234});
         connection.securesync <peer> (keyexchanger());
 
-        mybroadcast.link(connection);
+        mybroadcast.link <broadcast <std :: string> :: fast> (connection);
 
         cli(mybroadcast);
     });
