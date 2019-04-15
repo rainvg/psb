@@ -339,7 +339,7 @@ namespace psb
             else
                 break;
 
-            co_await wait(1_s);
+            co_await wait(0.1_s);
         }
     }
 };

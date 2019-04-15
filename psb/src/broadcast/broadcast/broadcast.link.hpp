@@ -141,7 +141,7 @@ namespace psb
                 std :: vector <announcement> announcements;
                 std :: unordered_set <blockid, shorthash> advertisements;
                 std :: vector <blockid> requests;
-                optional <class block> block;
+                variant <blockid, class block> block;
 
                 if(auto arc = warc.lock())
                 {
@@ -160,11 +160,13 @@ namespace psb
                         }
                         else if(this->_requests.remote.size())
                         {
-                            struct blockid blockid = this->_requests.remote.front();
+                            block = this->_requests.remote.front();
                             this->_requests.remote.pop_front();
-                            block = broadcast.block(blockid);
                         }
                     });
+
+                    if(block)
+                        block = broadcast.block(block.template reinterpret <blockid> ());
                 }
                 else
                     exception <arc_expired> :: raise(this);
@@ -195,9 +197,9 @@ namespace psb
                 if(block)
                 {
                     std :: vector <message> messages;
-                    messages.reserve((*block).size());
+                    messages.reserve(block.template reinterpret <class block> ().size());
 
-                    for(const auto & message : *block)
+                    for(const auto & message : block.template reinterpret <class block> ())
                         messages.push_back(message);
 
                     co_await this->_connection.template send <transaction> (messages);
