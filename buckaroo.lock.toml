@@ -10,4 +10,4 @@ revision = "2841fd740122b966e6fa2cf8246f38a08f22caba"
 
 [lock."github.com/rainvg/drop"]
 versions = [ "branch=develop" ]
-revision = "b7fdc7d234e0d539d346c1c6ff9614638c2e8613"
+revision = "1738ada3d184a5d561916f2dcd1c8d389523ff83"
