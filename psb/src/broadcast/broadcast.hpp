@@ -24,6 +24,7 @@ namespace psb
 
     template <typename type> broadcast <type> :: broadcast() : _arc(std :: make_shared <arc> ())
     {
+        this->run(this->_arc);
     }
 
     // Private constructors
@@ -75,6 +76,7 @@ namespace psb
         {
             if(!(this->announced(batch.hash)))
             {
+                std :: cout << "Spotted new batch: " << batch.hash << " (" << batch.size << ")" << std :: endl;
                 this->_arc->_transfers[batch.hash] = transfer{.size = batch.size};
                 for(uint32_t sequence = 0; sequence < batch.size; sequence++)
                     this->_arc->_transfers[batch.hash].providers[sequence] = std :: vector <std :: weak_ptr <class link>> ();
@@ -93,6 +95,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: available(const hash & hash, const std :: shared_ptr <class link> & link)
     {
+        std :: cout << "Batch " << hash << " available on link " << link << std :: endl;
         this->_arc->_guard([&]()
         {
             auto transfer = this->_arc->_transfers.find(hash);
@@ -111,6 +114,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: available(const blockid & block, const std :: shared_ptr <class link> & link)
     {
+        std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link << std :: endl;
         this->_arc->_guard([&]()
         {
             auto transfer = this->_arc->_transfers.find(block.hash);
@@ -131,12 +135,16 @@ namespace psb
         bool deliver = this->_arc->_guard([&]()
         {
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
+            {
+                std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
                 this->_arc->_blocks[blockid] = block;
+            }
 
             auto transfer = this->_arc->_transfers.find(blockid.hash);
             if(transfer != this->_arc->_transfers.end())
             {
                 transfer->second.providers.erase(blockid.sequence);
+                std :: cout << "Missing blocks: " << transfer->second.providers.size() << std :: endl;
                 if(transfer->second.providers.size() == 0)
                 {
                     size = transfer->second.size;
@@ -149,7 +157,10 @@ namespace psb
         });
 
         if(deliver)
+        {
+            std :: cout << "Delivering batch " << blockid.hash << " (" << size << ")" << std :: endl;
             this->deliver({.hash = blockid.hash, .size = size});
+        }
     }
 
     template <typename type> void broadcast <type> :: deliver(const batchinfo & info)
@@ -214,6 +225,8 @@ namespace psb
         std :: weak_ptr <arc> warc = this->_arc;
         auto link = std :: make_shared <class link> (connection);
 
+        std :: cout << "Linking " << connection.remote() << ": " << link << std :: endl;
+
         this->_arc->_guard([&]()
         {
             this->_arc->_delivered.lock();
@@ -272,6 +285,40 @@ namespace psb
         {
             this->_arc->_links.erase(link);
         });
+    }
+
+    // Services
+
+    template <typename type> promise <void> broadcast <type> :: run(std :: weak_ptr <arc> warc)
+    {
+        while(true)
+        {
+            if(auto arc = warc.lock())
+            {
+                arc->_guard([&]()
+                {
+                    for(const auto & [hash, transfer] : arc->_transfers)
+                    {
+                        for(const auto & [sequence, providers] : transfer.providers)
+                        {
+                            for(const auto & provider : providers)
+                            {
+                                if(auto link = provider.lock())
+                                {
+                                    std :: cout << "Requesting block " << hash << "." << sequence << " from " << link << std :: endl;
+                                    link->request({.hash = hash, .sequence = sequence});
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            else
+                break;
+
+            co_await wait(1_s);
+        }
     }
 };
 

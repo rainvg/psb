@@ -117,6 +117,8 @@ namespace psb
         }
     }
 
+    // Services
+
     promise <void> directory :: run(std :: weak_ptr <arc> warc)
     {
         while(true)

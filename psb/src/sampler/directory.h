@@ -111,6 +111,9 @@ namespace psb
         promise <void> timeout(std :: weak_ptr <arc>, class keyexchanger :: publickey);
 
         promise <void> serve(std :: weak_ptr <arc>, connection);
+
+        // Services
+
         promise <void> run(std :: weak_ptr <arc>);
 
     public:

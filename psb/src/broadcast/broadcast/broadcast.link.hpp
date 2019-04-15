@@ -140,7 +140,7 @@ namespace psb
             {
                 std :: vector <announcement> announcements;
                 std :: unordered_set <blockid, shorthash> advertisements;
-                std :: vector <blockid> pending;
+                std :: vector <blockid> requests;
                 optional <class block> block;
 
                 if(auto arc = warc.lock())
@@ -155,8 +155,8 @@ namespace psb
                             advertisements.swap(this->_advertisements);
                         else if(this->_requests.pending.size())
                         {
-                            pending.swap(this->_requests.pending);
-                            this->_requests.local.insert(this->_requests.local.end(), pending.begin(), pending.end());
+                            requests.swap(this->_requests.pending);
+                            this->_requests.local.insert(this->_requests.local.end(), requests.begin(), requests.end());
                         }
                         else if(this->_requests.remote.size())
                         {
@@ -186,9 +186,9 @@ namespace psb
                     continue;
                 }
 
-                if(pending.size())
+                if(requests.size())
                 {
-                    co_await this->_connection.template send <transaction> (pending);
+                    co_await this->_connection.template send <transaction> (requests);
                     continue;
                 }
 
@@ -197,7 +197,7 @@ namespace psb
                     std :: vector <message> messages;
                     messages.reserve((*block).size());
 
-                    for(uint32_t sequence; sequence < (*block).size(); sequence++)
+                    for(uint32_t sequence = 0; sequence < (*block).size(); sequence++)
                         messages.push_back((*block)[sequence]);
 
                     co_await this->_connection.template send <transaction> (messages);
@@ -245,6 +245,8 @@ namespace psb
                         {
                             this->_requests.remote.insert(this->_requests.remote.end(), requests.begin(), requests.end());
                         });
+
+                        this->_pipe.post();
                     }, [&](const std :: vector <message> & messages)
                     {
                         blockid blockid;

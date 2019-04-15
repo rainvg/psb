@@ -146,6 +146,17 @@ namespace
             throw "Buffer not flushed after unlocking.";
     });
 
+    auto deliver = [](const auto & batch)
+    {
+        std :: cout << std :: endl;
+        std :: cout << "Batch delivered: " << batch.info.hash << std :: endl;
+        for(const auto & block : batch.blocks)
+            for(uint32_t sequence = 0; sequence < block.size(); sequence++)
+                std :: cout << " -> " << block[sequence].feed << "." << block[sequence].sequence << ": " << block[sequence].payload << std :: endl;
+
+        std :: cout << std :: endl;
+    };
+
     $test("broadcast/blockmask", []
     {
         testblockmask(0., 8, 12, 1024);
@@ -161,34 +172,36 @@ namespace
 
     $test("broadcast/alice", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
-        broadcast <std :: string> broadcast;
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
+        broadcast <std :: string> mybroadcast;
+        mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
 
         std :: thread receiver([&]()
         {
             auto listener = tcp :: listen(1234);
-            
+
             auto connection = listener.acceptsync();
             connection.securesync <peer> (keyexchanger());
 
             std :: cout << "Connection incoming. Establishing link." << std :: endl;
 
-            broadcast.link(connection);
+            mybroadcast.link(connection);
         });
 
-        cli(broadcast);
+        cli(mybroadcast);
     });
 
     $test("broadcast/bob", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
-        broadcast <std :: string> broadcast;
+        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
+        broadcast <std :: string> mybroadcast;
+        mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
 
         auto connection = tcp :: connectsync({"127.0.0.1", 1234});
         connection.securesync <peer> (keyexchanger());
 
-        broadcast.link(connection);
+        mybroadcast.link(connection);
 
-        cli(broadcast);
+        cli(mybroadcast);
     });
 };

@@ -155,6 +155,10 @@ namespace psb
 
         promise <void> link(const connection &);
         void unlink(const std :: shared_ptr <class link> &);
+
+        // Services
+
+        promise <void> run(std :: weak_ptr <arc>);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -444,6 +448,7 @@ namespace psb
 
         std :: vector <std :: function <void (const batch &)>> _handlers;
 
+        pipe <void> _pipe;
         guard <simple> _guard;
     };
 };
