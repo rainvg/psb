@@ -31,6 +31,18 @@ namespace psb
         return this->_arc->size;
     }
 
+    // Iterators
+
+    template <typename type> auto broadcast <type> :: block :: begin() const
+    {
+        return static_cast <const arc &> (*(this->_arc)).messages.begin();
+    }
+
+    template <typename type> auto broadcast <type> :: block :: end() const
+    {
+        return std :: next(this->begin(), this->size());
+    }
+
     // Methods
 
     template <typename type> void broadcast <type> :: block :: push(const message & message)

@@ -263,6 +263,11 @@ namespace psb
 
         const size_t & size() const;
 
+        // Iterators
+
+        inline auto begin() const;
+        inline auto end() const;
+
         // Methods
 
         void push(const message &);

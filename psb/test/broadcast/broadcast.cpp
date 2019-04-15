@@ -151,8 +151,8 @@ namespace
         std :: cout << std :: endl;
         std :: cout << "Batch delivered: " << batch.info.hash << std :: endl;
         for(const auto & block : batch.blocks)
-            for(uint32_t sequence = 0; sequence < block.size(); sequence++)
-                std :: cout << " -> " << block[sequence].feed << "." << block[sequence].sequence << ": " << block[sequence].payload << std :: endl;
+            for(const auto & message : block)
+                std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl;
 
         std :: cout << std :: endl;
     };

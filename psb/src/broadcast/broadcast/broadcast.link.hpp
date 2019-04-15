@@ -197,9 +197,9 @@ namespace psb
                     std :: vector <message> messages;
                     messages.reserve((*block).size());
 
-                    for(uint32_t sequence = 0; sequence < (*block).size(); sequence++)
-                        messages.push_back((*block)[sequence]);
-
+                    for(const auto & message : *block)
+                        messages.push_back(message);
+                    
                     co_await this->_connection.template send <transaction> (messages);
                     continue;
                 }

@@ -187,10 +187,10 @@ namespace psb
         hash :: state hasher;
 
         for(const auto & block : blocks)
-            for(size_t index = 0; index < block.size(); index++) // TODO: (nice-to-have) add std :: iterator integration to block
+            for(const auto & message : block)
             {
-                std :: cout << "[" << index << "] " << block[index].feed << "." << block[index].sequence << ": " << block[index].payload << std :: endl;
-                hasher.update(block[index]);
+                std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl;
+                hasher.update(message);
             }
 
         batchinfo info = {.hash = hasher.finalize(), .size = static_cast <uint32_t> (blocks.size())};
