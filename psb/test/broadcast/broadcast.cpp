@@ -67,7 +67,7 @@ namespace
         broadcast <uint64_t> mybroadcast;
 
         std :: ofstream log;
-        std :: string filename = "logs/" + std :: to_string(getpid()) + ".txt";
+        std :: string filename = "tmp/logs/" + std :: to_string(getpid()) + ".txt";
 
         log.open(filename, std :: ios :: out);
 
