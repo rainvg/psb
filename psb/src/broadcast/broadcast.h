@@ -62,6 +62,11 @@ namespace psb
             {
                 static constexpr size_t size = 16;
             };
+
+            struct link
+            {
+                static constexpr interval keepalive = 5_s;
+            };
         };
 
     public:
@@ -81,9 +86,19 @@ namespace psb
                 static double lambda;
             };
 
-            struct thresholds
+            struct lanes
             {
-                static size_t idle;
+                struct fast
+                {
+                    static size_t links;
+                    static size_t requests;
+                };
+
+                struct secure
+                {
+                    static size_t links;
+                    static size_t requests;
+                };
             };
         };
 
@@ -420,6 +435,7 @@ namespace psb
         {
             timestamp last;
             interval latency;
+            timestamp keepalive;
         } _chrono;
 
         connection _connection;
@@ -457,6 +473,7 @@ namespace psb
 
         promise <void> send(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         promise <void> receive(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+        promise <void> keepalive(std :: shared_ptr <link>);
     };
 
     template <typename type> class broadcast <type> :: priority
@@ -541,6 +558,12 @@ namespace psb
             std :: unordered_set <std :: shared_ptr <class link>> secure;
             std :: unordered_set <std :: shared_ptr <class link>> idle;
         } _links;
+
+        struct
+        {
+            std :: unordered_set <blockid, shorthash> all;
+            std :: unordered_set <blockid, shorthash> secure;
+        } _requests;
 
         std :: vector <std :: function <void (const batch &)>> _handlers;
 

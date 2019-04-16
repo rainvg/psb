@@ -11,7 +11,7 @@ namespace psb
 
     // Constructors
 
-    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _chrono{.latency = 0}, _connection(connection), _alive(true)
+    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _chrono{.latency = 0, .keepalive = now()}, _connection(connection), _alive(true)
     {
     }
 
@@ -128,6 +128,7 @@ namespace psb
     {
         this->send(warc, link);
         this->receive(warc, link);
+        this->keepalive(link);
     }
 
     // Private methods
@@ -228,6 +229,13 @@ namespace psb
                     continue;
                 }
 
+                timestamp now = drop :: now();
+                if(now - this->_chrono.keepalive > settings :: link :: keepalive)
+                {
+                    this->_chrono.keepalive = now;
+                    co_await this->_connection.template send <transaction> ({});
+                }
+
                 co_await this->_pipe.wait();
             }
         }
@@ -305,6 +313,15 @@ namespace psb
         catch(...)
         {
             this->shutdown(warc, link);
+        }
+    }
+
+    template <typename type> promise <void> broadcast <type> :: link :: keepalive(std :: shared_ptr <link> link)
+    {
+        while(this->_guard([&](){return this->_alive;}))
+        {
+            co_await wait(settings :: link :: keepalive);
+            this->_pipe.post();
         }
     }
 };

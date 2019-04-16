@@ -279,7 +279,7 @@ namespace
 
     $test("broadcast/active", []
     {
-        peer(5000);
+        peer(50);
     });
 
     $test("broadcast/passive", []

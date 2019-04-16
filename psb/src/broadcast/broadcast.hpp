@@ -21,7 +21,12 @@ namespace psb
     template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 256;
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
-    template <typename type> size_t broadcast <type> :: configuration :: thresholds :: idle = 2;
+
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 5;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
+
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links = 15;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 5;
 
     // Constructors
 
@@ -159,7 +164,7 @@ namespace psb
                 this->_arc->_blocks[blockid] = block;
             }
 
-            if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()) && (link->requests() < configuration :: thresholds :: idle))
+            if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()) && (link->requests() < configuration :: lanes :: fast :: requests))
                 this->_arc->_links.idle.insert(link);
 
             auto transfer = this->_arc->_transfers.find(blockid.hash);
