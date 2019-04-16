@@ -11,7 +11,7 @@ namespace psb
 
     // Constructors
 
-    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _connection(connection), _alive(true)
+    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _chrono{.latency = 0}, _connection(connection), _alive(true)
     {
     }
 
@@ -22,6 +22,14 @@ namespace psb
         return this->_guard([&]()
         {
             return this->_requests.pending.size() + this->_requests.local.size();
+        });
+    }
+
+    template <typename type> interval broadcast <type> :: link :: latency()
+    {
+        return this->_guard([&]()
+        {
+            return this->_chrono.latency;
         });
     }
 
@@ -166,6 +174,10 @@ namespace psb
                         else if(this->_requests.pending.size())
                         {
                             requests.swap(this->_requests.pending);
+
+                            if(!(this->_requests.local.size()))
+                                this->_chrono.last = now();
+
                             this->_requests.local.insert(this->_requests.local.end(), requests.begin(), requests.end());
                         }
                         else if(this->_requests.remote.size())
@@ -272,6 +284,15 @@ namespace psb
                             }
                             else
                                 exception <ghost_request> :: raise(this);
+
+                            interval latency = now() - this->_chrono.last;
+
+                            if(this->_chrono.latency == 0)
+                                this->_chrono.latency = latency;
+                            else
+                                this->_chrono.latency = (uint64_t)(((double)(uint64_t)(this->_chrono.latency) + configuration :: link :: lambda * (double)(uint64_t) latency) / (1. + configuration :: link :: lambda));
+
+                            this->_chrono.last = now();
                         });
 
                         broadcast.dispatch(blockid, messages, link);

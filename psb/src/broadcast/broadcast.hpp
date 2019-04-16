@@ -20,7 +20,7 @@ namespace psb
 
     template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 256;
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
-
+    template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
     template <typename type> size_t broadcast <type> :: configuration :: thresholds :: idle = 2;
 
     // Constructors
@@ -155,6 +155,7 @@ namespace psb
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
             {
                 std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
+                std :: cout << "Link " << link << " has a latency of " << link->latency() << std :: endl;
                 this->_arc->_blocks[blockid] = block;
             }
 

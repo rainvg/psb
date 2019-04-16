@@ -76,6 +76,11 @@ namespace psb
                 static interval timeout;
             };
 
+            struct link
+            {
+                static double lambda;
+            };
+
             struct thresholds
             {
                 static size_t idle;
@@ -411,6 +416,12 @@ namespace psb
             std :: deque <blockid> remote;
         } _requests;
 
+        struct
+        {
+            timestamp last;
+            interval latency;
+        } _chrono;
+
         connection _connection;
 
         pipe <void> _pipe;
@@ -424,7 +435,8 @@ namespace psb
 
         // Getters
 
-        size_t requests() const;
+        size_t requests();
+        interval latency();
 
         // Methods
 
