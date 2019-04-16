@@ -80,7 +80,7 @@ namespace psb
         this->_fifo[priority - this->_offset].erase();
 
         size_t pop = 0;
-        while(!(this->_fifo[pop]))
+        while(pop < this->_fifo.size() && !(this->_fifo[pop]))
             pop++;
 
         this->_fifo.erase(this->_fifo.begin(), this->_fifo.begin() + pop);

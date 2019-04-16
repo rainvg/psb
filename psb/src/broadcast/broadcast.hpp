@@ -112,7 +112,12 @@ namespace psb
                 {
                     auto block = transfer->second.providers.find(sequence);
                     if(block != transfer->second.providers.end())
+                    {
                         block->second.push_back(link);
+
+                        if(this->_arc->_providers.find(link) != this->_arc->_providers.end())
+                            this->_arc->_providers[link].insert({.hash = hash, .sequence = sequence});
+                    }
                 }
             }
         });
@@ -129,7 +134,12 @@ namespace psb
             {
                 auto provider = transfer->second.providers.find(block.sequence);
                 if(provider != transfer->second.providers.end())
+                {
                     provider->second.push_back(link);
+
+                    if(this->_arc->_providers.find(link) != this->_arc->_providers.end())
+                        this->_arc->_providers[link].insert(block);
+                }
             }
         });
     }
@@ -161,7 +171,10 @@ namespace psb
                 if(transfer->second.providers.size() == 0)
                 {
                     size = transfer->second.size;
+
                     this->_arc->_transfers.erase(blockid.hash);
+                    this->_arc->_priority.remove(blockid.hash);
+
                     return true;
                 }
             }
@@ -187,7 +200,6 @@ namespace psb
                 batch.blocks.push_back(this->_arc->_blocks[{.hash = info.hash, .sequence = sequence}]);
 
             this->_arc->_delivered.add(info);
-            this->_arc->_priority.remove(info.hash);
 
             return this->_arc->_handlers;
         });
@@ -278,6 +290,8 @@ namespace psb
                     {
                         arc->_links.fast.insert(link);
                         arc->_links.idle.insert(link);
+
+                        arc->_providers[link] = std :: unordered_set <blockid, shorthash> ();
                     }
                     else
                         arc->_links.secure.insert(link);
@@ -310,6 +324,8 @@ namespace psb
             this->_arc->_links.fast.erase(link);
             this->_arc->_links.secure.erase(link);
             this->_arc->_links.idle.erase(link);
+
+            this->_arc->_providers.erase(link);
         });
     }
 

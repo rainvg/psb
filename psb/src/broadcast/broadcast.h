@@ -516,6 +516,7 @@ namespace psb
 
         priority _priority;
         std :: unordered_map <hash, transfer, shorthash> _transfers;
+        std :: unordered_map <std :: shared_ptr <class link>, std :: unordered_set <blockid, shorthash>> _providers;
 
         struct
         {
