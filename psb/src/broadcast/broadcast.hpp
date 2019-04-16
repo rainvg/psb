@@ -10,6 +10,7 @@
 #include "broadcast/broadcast.batchset.hpp"
 #include "broadcast/broadcast.blockmask.hpp"
 #include "broadcast/broadcast.link.hpp"
+#include "broadcast/broadcast.priority.hpp"
 
 namespace psb
 {

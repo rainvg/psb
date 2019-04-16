@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include <drop/network/connection.hpp>
 #include <drop/network/tcp.hpp>
@@ -57,16 +58,50 @@ namespace
         }
     }
 
-    void cli(broadcast <std :: string> & broadcast)
+    void peer(const uint32_t & iterations)
     {
-        while(true)
-        {
-            std :: string message;
-            std :: getline(std :: cin, message);
+        std :: cout << "PROCESS ID IS " << getpid() << std :: endl;
+        enum singlechannel {single};
+        auto sampler = directory :: sample <singlechannel> ({"127.0.0.1", 1234});
 
-            signer signer;
-            broadcast.publish(signer.publickey(), rand(), message, signer.sign(message));
+        broadcast <uint64_t> mybroadcast;
+
+        std :: ofstream log;
+        std :: string filename = "logs/" + std :: to_string(getpid()) + ".txt";
+
+        log.open(filename, std :: ios :: out);
+
+        mybroadcast.on <broadcast <uint64_t> :: batch> ([&](const auto & batch)
+        {
+            log << batch.info.hash << ":" << batch.info.size << std :: endl;
+        });
+
+        [&]() -> promise <void>
+        {
+            while(true)
+                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.accept <single> ());
+        }();
+
+        size_t links;
+        std :: cin >> links;
+
+        for(size_t link = 0; link < links; link++)
+        {
+            [&]() -> promise <void>
+            {
+                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.connect <single> ());
+            }();
         }
+
+        signer signer;
+        for(uint64_t sequence = 0; sequence < iterations; sequence++)
+        {
+            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence));
+            sleep(0.2_s);
+        }
+
+        while(true)
+            sleep(1_h);
     }
 
     // Tests
@@ -171,6 +206,69 @@ namespace
         testblockmask(1., 1024, 1536, 128);
     });
 
+    $test("broadcast/priority", []
+    {
+        broadcast <uint64_t> :: priority priority;
+
+        std :: set <uint64_t> values;
+        std :: unordered_set <hash, shorthash> hashes;
+
+        uint64_t value = 0;
+
+        auto check = [&]()
+        {
+            for(const uint64_t & value : values)
+                if(priority[value] != value)
+                    throw "Priority mismatch.";
+
+            size_t size = 0;
+            for(const hash & hash : priority)
+            {
+                size++;
+                if(hashes.find(hash) != hashes.end())
+                    throw "Element not properly removed.";
+            }
+
+            if(size != hashes.size())
+                throw "Missing element.";
+        };
+
+        for(uint64_t iteration = 0;; iteration++)
+        {
+            std :: cout << iteration << ": " << values.size() << std :: endl;
+
+            uint64_t add = rand() % 100;
+            for(uint64_t i = 0; i < add; i++)
+            {
+                priority.push(value);
+
+                values.insert(value);
+                hashes.insert(value);
+
+                value++;
+            }
+
+            check();
+
+            std :: vector <uint64_t> remove;
+            for(const uint64_t & value : values)
+            {
+                if(rand() % 10 == 0)
+                    remove.push_back(value);
+            }
+
+            for(const uint64_t & value : remove)
+            {
+                priority.remove(value);
+
+                values.erase(value);
+                hashes.erase(value);
+            }
+
+            check();
+        }
+    });
+
     $test("broadcast/rendezvous", []
     {
         directory directory(1234);
@@ -179,36 +277,13 @@ namespace
             sleep(1_h);
     });
 
-    $test("broadcast/peer", []
+    $test("broadcast/active", []
     {
-        std :: cout << "PROCESS ID IS " << getpid() << std :: endl;
-        enum singlechannel {single};
-        auto sampler = directory :: sample <singlechannel> ({"127.0.0.1", 1234});
+        peer(5000);
+    });
 
-        broadcast <uint64_t> mybroadcast;
-
-        [&]() -> promise <void>
-        {
-            while(true)
-                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.accept <single> ());
-        }();
-
-        size_t links;
-        std :: cin >> links;
-
-        for(size_t link = 0; link < links; link++)
-        {
-            [&]() -> promise <void>
-            {
-                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.connect <single> ());
-            }();
-        }
-
-        signer signer;
-        for(uint64_t sequence = 0;; sequence++)
-        {
-            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence));
-            sleep(0.2_s);
-        }
+    $test("broadcast/passive", []
+    {
+        peer(0);
     });
 };

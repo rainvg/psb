@@ -108,6 +108,7 @@ namespace psb
         class batchset;
         class blockmask;
         class link;
+        class priority;
 
         class arc;
 
@@ -435,6 +436,63 @@ namespace psb
 
         promise <void> send(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         promise <void> receive(std :: weak_ptr <arc>, std :: shared_ptr <link>);
+    };
+
+    template <typename type> class broadcast <type> :: priority
+    {
+        // Service nested classes
+
+        class iterator : public std :: iterator <std::input_iterator_tag, size_t, size_t, const hash *, hash>
+        {
+            // Members
+
+            const priority & _priority;
+            size_t _cursor;
+
+        public:
+
+            // Constructors
+
+            iterator(const priority &, const size_t &);
+
+            // Operators
+
+            iterator & operator ++ ();
+            iterator operator ++ (int);
+
+            bool operator == (const iterator &) const;
+            bool operator != (const iterator &) const;
+
+            hash operator * () const;
+        };
+
+        // Members
+
+        std :: deque <optional <hash>> _fifo;
+        std :: unordered_map <hash, uint64_t, shorthash> _map;
+
+        uint64_t _offset;
+        uint64_t _nonce;
+
+    public:
+
+        // Constructors
+
+        priority();
+
+        // Iterators
+
+        iterator begin() const;
+        iterator end() const;
+
+        // Methods
+
+        void push(const hash &);
+        void remove(const hash &);
+
+        // Operators
+
+        uint64_t operator [] (const hash &) const;
     };
 
     template <typename type> class broadcast <type> :: arc
