@@ -17,7 +17,7 @@ namespace psb
 
     // Getters
 
-    template <typename type> size_t broadcast <type> :: link :: requests() const
+    template <typename type> size_t broadcast <type> :: link :: requests()
     {
         return this->_guard([&]()
         {
@@ -274,7 +274,7 @@ namespace psb
                                 exception <ghost_request> :: raise(this);
                         });
 
-                        broadcast.dispatch(blockid, messages);
+                        broadcast.dispatch(blockid, messages, link);
                     });
                 }
                 else

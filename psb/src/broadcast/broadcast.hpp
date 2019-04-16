@@ -21,6 +21,8 @@ namespace psb
     template <typename type> size_t broadcast <type> :: configuration :: sponge :: capacity = 256;
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
 
+    template <typename type> size_t broadcast <type> :: configuration :: thresholds :: idle = 2;
+
     // Constructors
 
     template <typename type> broadcast <type> :: broadcast() : _arc(std :: make_shared <arc> ())
@@ -144,7 +146,7 @@ namespace psb
         });
     }
 
-    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const class block & block)
+    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const class block & block, const std :: shared_ptr <class link> & link)
     {
         uint32_t size;
 
@@ -155,6 +157,9 @@ namespace psb
                 std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
                 this->_arc->_blocks[blockid] = block;
             }
+
+            if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()) && (link->requests() < configuration :: thresholds :: idle))
+                this->_arc->_links.idle.insert(link);
 
             auto transfer = this->_arc->_transfers.find(blockid.hash);
             if(transfer != this->_arc->_transfers.end())
@@ -241,7 +246,7 @@ namespace psb
         if(state == transferring)
         {
             for(uint32_t sequence = 0; sequence < info.size; sequence++)
-                this->dispatch({.hash = info.hash, .sequence = sequence}, blocks[sequence]);
+                this->dispatch({.hash = info.hash, .sequence = sequence}, blocks[sequence], nullptr);
         }
         else if(state == released)
             this->deliver(info);

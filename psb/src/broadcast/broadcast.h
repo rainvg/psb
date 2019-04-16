@@ -75,6 +75,11 @@ namespace psb
                 static size_t capacity;
                 static interval timeout;
             };
+
+            struct thresholds
+            {
+                static size_t idle;
+            };
         };
 
     public:
@@ -153,7 +158,7 @@ namespace psb
         void available(const hash &, const std :: shared_ptr <link> &);
         void available(const blockid &, const std :: shared_ptr <link> &);
 
-        void dispatch(const blockid &, const class block &);
+        void dispatch(const blockid &, const class block &, const std :: shared_ptr <link> &);
         void deliver(const batchinfo &);
 
         void release(const std :: vector <class block> &);
