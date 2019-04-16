@@ -15,6 +15,16 @@ namespace psb
     {
     }
 
+    // Getters
+
+    template <typename type> size_t broadcast <type> :: link :: requests() const
+    {
+        return this->_guard([&]()
+        {
+            return this->_requests.pending.size() + this->_requests.local.size();
+        });
+    }
+
     // Methods
 
     template <typename type> void broadcast <type> :: link :: announce(const announcement & announcement)

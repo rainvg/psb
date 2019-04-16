@@ -82,6 +82,7 @@ namespace psb
                 for(uint32_t sequence = 0; sequence < batch.size; sequence++)
                     this->_arc->_transfers[batch.hash].providers[sequence] = std :: vector <std :: weak_ptr <class link>> ();
 
+                this->_arc->_priority.push(batch.hash);
                 this->announce({.batch = batch, .available = false});
             }
         });
@@ -186,6 +187,8 @@ namespace psb
                 batch.blocks.push_back(this->_arc->_blocks[{.hash = info.hash, .sequence = sequence}]);
 
             this->_arc->_delivered.add(info);
+            this->_arc->_priority.remove(info.hash);
+
             return this->_arc->_handlers;
         });
 

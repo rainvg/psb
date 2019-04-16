@@ -417,6 +417,10 @@ namespace psb
 
         link(const connection &);
 
+        // Getters
+
+        size_t requests() const;
+
         // Methods
 
         void announce(const announcement &);
@@ -510,6 +514,7 @@ namespace psb
         std :: unordered_set <hash, shorthash> _announced;
         batchset _delivered;
 
+        priority _priority;
         std :: unordered_map <hash, transfer, shorthash> _transfers;
 
         struct
