@@ -60,7 +60,7 @@ namespace psb
         {
             struct block
             {
-                static constexpr size_t size = 1;
+                static constexpr size_t size = 16;
             };
         };
 
@@ -464,7 +464,7 @@ namespace psb
         std :: vector <std :: function <void (const batch &)>> _handlers;
 
         pipe <void> _pipe;
-        guard <simple> _guard;
+        guard <recursive> _guard;
     };
 };
 

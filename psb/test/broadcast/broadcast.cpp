@@ -11,6 +11,7 @@
 // Includes
 
 #include "psb/broadcast/broadcast.hpp"
+#include "psb/sampler/directory.hpp"
 
 namespace
 {
@@ -170,41 +171,44 @@ namespace
         testblockmask(1., 1024, 1536, 128);
     });
 
-    $test("broadcast/alice", []
+    $test("broadcast/rendezvous", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
-        broadcast <std :: string> mybroadcast;
-        mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
+        directory directory(1234);
 
-        std :: thread receiver([&]()
-        {
-            auto listener = tcp :: listen(1234);
-
-            while(true)
-            {
-                auto connection = listener.acceptsync();
-                connection.securesync <peer> (keyexchanger());
-
-                std :: cout << "Connection incoming. Establishing link." << std :: endl;
-
-                mybroadcast.link <broadcast <std :: string> :: fast> (connection);
-            }
-        });
-
-        cli(mybroadcast);
+        while(true)
+            sleep(1_h);
     });
 
-    $test("broadcast/bob", []
+    $test("broadcast/peer", []
     {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 1;
-        broadcast <std :: string> mybroadcast;
-        mybroadcast.on <broadcast <std :: string> :: batch> (deliver);
+        std :: cout << "PROCESS ID IS " << getpid() << std :: endl;
+        enum singlechannel {single};
+        auto sampler = directory :: sample <singlechannel> ({"127.0.0.1", 1234});
 
-        auto connection = tcp :: connectsync({"127.0.0.1", 1234});
-        connection.securesync <peer> (keyexchanger());
+        broadcast <uint64_t> mybroadcast;
 
-        mybroadcast.link <broadcast <std :: string> :: fast> (connection);
+        [&]() -> promise <void>
+        {
+            while(true)
+                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.accept <single> ());
+        }();
 
-        cli(mybroadcast);
+        size_t links;
+        std :: cin >> links;
+
+        for(size_t link = 0; link < links; link++)
+        {
+            [&]() -> promise <void>
+            {
+                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.connect <single> ());
+            }();
+        }
+
+        signer signer;
+        for(uint64_t sequence = 0;; sequence++)
+        {
+            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence));
+            sleep(0.2_s);
+        }
     });
 };
