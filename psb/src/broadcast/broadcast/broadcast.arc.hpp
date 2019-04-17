@@ -11,7 +11,7 @@ namespace psb
 
     // Constructors
 
-    template <typename type> broadcast <type> :: arc :: arc() : _handshakes{.fast = 0, .secure = 0}
+    template <typename type> broadcast <type> :: arc :: arc(const sampler <channels> & sampler) : _handshakes{.fast = 0, .secure = 0}, _sampler(sampler)
     {
     }
 };

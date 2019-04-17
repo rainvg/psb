@@ -43,6 +43,7 @@ namespace psb
 // Includes
 
 #include "psb/sampler/sampler.hpp"
+#include "channels.h"
 
 namespace psb
 {
@@ -119,7 +120,7 @@ namespace psb
 
         // Service nested enum
 
-        enum lane {fast, secure};
+        enum lane {fast, secure, guest};
 
         // Service nested structs
 
@@ -145,7 +146,7 @@ namespace psb
 
         // Constructors
 
-        broadcast();
+        broadcast(const sampler <channels> &);
 
     private:
 
@@ -183,12 +184,13 @@ namespace psb
 
         void release(const std :: vector <class block> &);
 
-        template <lane> promise <void> link(const connection &);
+        template <lane, typename... connections> promise <void> link(const connections & ...);
         void unlink(const std :: shared_ptr <class link> &);
 
         // Services
 
         promise <void> run(std :: weak_ptr <arc>);
+        promise <void> accept(std :: weak_ptr <arc>, sampler <channels>);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -563,6 +565,8 @@ namespace psb
             std :: unordered_set <std :: shared_ptr <class link>> fast;
             std :: unordered_set <std :: shared_ptr <class link>> secure;
             std :: unordered_set <std :: shared_ptr <class link>> idle;
+
+            std :: unordered_set <std :: shared_ptr <class link>> guest;
         } _links;
 
         struct
@@ -573,6 +577,8 @@ namespace psb
 
         std :: vector <std :: function <void (const batch &)>> _handlers;
 
+        sampler <channels> _sampler;
+
         pipe <void> _pipe;
         guard <recursive> _guard;
 
@@ -580,7 +586,7 @@ namespace psb
 
         // Constructors
 
-        arc();
+        arc(const sampler <channels> &);
     };
 };
 

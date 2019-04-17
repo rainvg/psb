@@ -23,17 +23,18 @@ namespace psb
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 5;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 3;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links = 15;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 5;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
 
     // Constructors
 
-    template <typename type> broadcast <type> :: broadcast() : _arc(std :: make_shared <arc> ())
+    template <typename type> broadcast <type> :: broadcast(const sampler <channels> & sampler) : _arc(std :: make_shared <arc> (sampler))
     {
         this->run(this->_arc);
+        this->accept(this->_arc, sampler);
     }
 
     // Private constructors
@@ -259,21 +260,40 @@ namespace psb
             this->deliver(info);
     }
 
-    template <typename type> template <enum broadcast <type> :: lane linklane> promise <void> broadcast <type> :: link(const connection & connection)
+    template <typename type> template <enum broadcast <type> :: lane linklane, typename... connections> promise <void> broadcast <type> :: link(const connections & ... incoming)
     {
         std :: weak_ptr <arc> warc = this->_arc;
-        auto link = std :: make_shared <class link> (connection);
 
-        std :: cout << "Linking " << connection.remote() << ": " << link << std :: endl;
-
-        this->_arc->_guard([&]()
+        auto sampler = this->_arc->_guard([&]()
         {
-            (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)++;
+            if constexpr (linklane == fast)
+                (this->_arc->_handshakes.fast)++;
+            else if constexpr (linklane == secure)
+                (this->_arc->_handshakes.secure)++;
+
             this->_arc->_delivered.lock();
+            return this->_arc->_sampler;
         });
 
         try
         {
+            auto connection = co_await [&]() -> promise <class connection>
+            {
+                if constexpr (sizeof...(incoming))
+                {
+                    co_return [](const auto & connection)
+                    {
+                        return connection;
+                    }(incoming...);
+                }
+                else
+                    co_return co_await sampler.template connect <gossip> ();
+            }();
+
+            auto link = std :: make_shared <class link> (connection);
+
+            std :: cout << "Linking <" << std :: array <const char *, 3> {"fast", "secure", "guest"}[linklane] << "> " << connection.remote() << ": " << link << std :: endl;
+
             std :: vector <batchinfo> sync = co_await link->sync(warc, link);
 
             if(auto arc = warc.lock())
@@ -297,7 +317,11 @@ namespace psb
                                 link->advertise({.hash = hash, .sequence = sequence});
                     }
 
-                    (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)--;
+                    if constexpr (linklane == fast)
+                        (this->_arc->_handshakes.fast)--;
+                    else if constexpr (linklane == secure)
+                        (this->_arc->_handshakes.secure)--;
+
                     arc->_delivered.unlock();
 
                     if constexpr (linklane == fast)
@@ -307,8 +331,10 @@ namespace psb
 
                         arc->_providers[link] = std :: unordered_set <blockid, shorthash> ();
                     }
-                    else
+                    else if constexpr (linklane == secure)
                         arc->_links.secure.insert(link);
+                    else
+                        arc->_links.guest.insert(link);
                 });
 
                 for(const auto & batch : sync)
@@ -323,7 +349,11 @@ namespace psb
             {
                 arc->_guard([&]()
                 {
-                    (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)--;
+                    if constexpr (linklane == fast)
+                        (this->_arc->_handshakes.fast)--;
+                    else if constexpr (linklane == secure)
+                        (this->_arc->_handshakes.secure)--;
+
                     arc->_delivered.unlock();
                 });
             }
@@ -332,13 +362,16 @@ namespace psb
 
     template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link)
     {
-        std :: cout << "Unlinking " << link << "." << std :: endl;
-
         this->_arc->_guard([&]()
         {
-            this->_arc->_links.fast.erase(link);
-            this->_arc->_links.secure.erase(link);
+            if(this->_arc->_links.fast.erase(link))
+                std :: cout << "Unlinking  <fast> : " << link << std :: endl;
+            if(this->_arc->_links.secure.erase(link))
+                std :: cout << "Unlinking  <secure> : " << link << std :: endl;
             this->_arc->_links.idle.erase(link);
+
+            if(this->_arc->_links.guest.erase(link))
+                std :: cout << "Unlinking  <guest> : " << link << std :: endl;
 
             this->_arc->_providers.erase(link);
         });
@@ -350,10 +383,19 @@ namespace psb
     {
         while(true)
         {
+            struct
+            {
+                size_t fast;
+                size_t secure;
+            } handshakes;
+
             if(auto arc = warc.lock())
             {
                 arc->_guard([&]()
                 {
+                    handshakes.fast = configuration :: lanes :: fast :: links - arc->_handshakes.fast - arc->_links.fast.size();
+                    handshakes.secure = configuration :: lanes :: secure :: links - arc->_handshakes.secure - arc->_links.secure.size();
+
                     for(const auto & [hash, transfer] : arc->_transfers)
                     {
                         for(const auto & [sequence, providers] : transfer.providers)
@@ -374,7 +416,29 @@ namespace psb
             else
                 break;
 
+            for(size_t handshake = 0; handshake < handshakes.fast; handshake++)
+                this->link <fast> ();
+
+            for(size_t handshake = 0; handshake < handshakes.secure; handshake++)
+                this->link <secure> ();
+
             co_await wait(0.1_s);
+        }
+    }
+
+    template <typename type> promise <void> broadcast <type> :: accept(std :: weak_ptr <arc> warc, sampler <channels> sampler)
+    {
+        while(true)
+        {
+            auto connection = co_await sampler.accept <gossip> ();
+
+            if(auto arc = warc.lock())
+            {
+                broadcast broadcast = arc;
+                broadcast.link <guest> (connection);
+            }
+            else
+                break;
         }
     }
 };

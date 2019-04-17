@@ -60,11 +60,12 @@ namespace
 
     void peer(const uint32_t & iterations)
     {
-        std :: cout << "PROCESS ID IS " << getpid() << std :: endl;
-        enum singlechannel {single};
-        auto sampler = directory :: sample <singlechannel> ({"127.0.0.1", 1234});
+        auto sampler = directory :: sample <channels> ({"127.0.0.1", 1234});
 
-        broadcast <uint64_t> mybroadcast;
+        std :: cout << "Press enter to start the peer " << getpid() << "." << std :: endl;
+        std :: cin.ignore();
+
+        broadcast <uint64_t> mybroadcast(sampler);
 
         std :: ofstream log;
         std :: string filename = "tmp/logs/" + std :: to_string(getpid()) + ".txt";
@@ -75,23 +76,6 @@ namespace
         {
             log << batch.info.hash << ":" << batch.info.size << std :: endl;
         });
-
-        [&]() -> promise <void>
-        {
-            while(true)
-                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.accept <single> ());
-        }();
-
-        size_t links;
-        std :: cin >> links;
-
-        for(size_t link = 0; link < links; link++)
-        {
-            [&]() -> promise <void>
-            {
-                mybroadcast.link <broadcast <uint64_t> :: fast> (co_await sampler.connect <single> ());
-            }();
-        }
 
         signer signer;
         for(uint64_t sequence = 0; sequence < iterations; sequence++)
@@ -105,33 +89,6 @@ namespace
     }
 
     // Tests
-
-    $test("broadcast/sponge", []
-    {
-        broadcast <std :: string> :: configuration :: sponge :: capacity = 2;
-
-        broadcast <std :: string> broadcast;
-
-        signer feed;
-        uint32_t sequence = 0;
-
-        auto publish = [&](const std :: string & message)
-        {
-            broadcast.publish(feed.publickey(), sequence, message, feed.sign(sequence, message));
-            sequence++;
-        };
-
-        publish("Hello World!");
-        publish("Nice to be around!");
-        publish("Would like to chat a bit!");
-        publish("But probably I should hang up for this batch. Byeee!");
-
-        publish("And here we are in the next batch!");
-        sleep(1_s);
-        publish("Still there?");
-
-        sleep(10_s);
-    });
 
     $test("broadcast/batchset", []
     {
@@ -279,7 +236,7 @@ namespace
 
     $test("broadcast/active", []
     {
-        peer(50);
+        peer(5000);
     });
 
     $test("broadcast/passive", []
