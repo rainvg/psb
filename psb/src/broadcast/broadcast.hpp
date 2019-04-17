@@ -11,6 +11,7 @@
 #include "broadcast/broadcast.blockmask.hpp"
 #include "broadcast/broadcast.link.hpp"
 #include "broadcast/broadcast.priority.hpp"
+#include "broadcast/broadcast.arc.hpp"
 
 namespace psb
 {
@@ -267,6 +268,7 @@ namespace psb
 
         this->_arc->_guard([&]()
         {
+            (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)++;
             this->_arc->_delivered.lock();
         });
 
@@ -295,6 +297,7 @@ namespace psb
                                 link->advertise({.hash = hash, .sequence = sequence});
                     }
 
+                    (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)--;
                     arc->_delivered.unlock();
 
                     if constexpr (linklane == fast)
@@ -320,6 +323,7 @@ namespace psb
             {
                 arc->_guard([&]()
                 {
+                    (linklane == fast ? this->_arc->_handshakes.fast : this->_arc->_handshakes.secure)--;
                     arc->_delivered.unlock();
                 });
             }

@@ -554,6 +554,12 @@ namespace psb
 
         struct
         {
+            size_t fast;
+            size_t secure;
+        } _handshakes;
+
+        struct
+        {
             std :: unordered_set <std :: shared_ptr <class link>> fast;
             std :: unordered_set <std :: shared_ptr <class link>> secure;
             std :: unordered_set <std :: shared_ptr <class link>> idle;
@@ -569,6 +575,12 @@ namespace psb
 
         pipe <void> _pipe;
         guard <recursive> _guard;
+
+    public:
+
+        // Constructors
+
+        arc();
     };
 };
 
