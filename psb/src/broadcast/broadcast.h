@@ -189,7 +189,7 @@ namespace psb
 
         // Services
 
-        promise <void> run(std :: weak_ptr <arc>);
+        promise <void> drive(std :: weak_ptr <arc>);
         promise <void> accept(std :: weak_ptr <arc>, sampler <channels>);
     };
 

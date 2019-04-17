@@ -33,7 +33,7 @@ namespace psb
 
     template <typename type> broadcast <type> :: broadcast(const sampler <channels> & sampler) : _arc(std :: make_shared <arc> (sampler))
     {
-        this->run(this->_arc);
+        this->drive(this->_arc);
         this->accept(this->_arc, sampler);
     }
 
@@ -111,6 +111,8 @@ namespace psb
     template <typename type> void broadcast <type> :: available(const hash & hash, const std :: shared_ptr <class link> & link)
     {
         std :: cout << "Batch " << hash << " available on link " << link << std :: endl;
+
+        bool post = false;
         this->_arc->_guard([&]()
         {
             auto transfer = this->_arc->_transfers.find(hash);
@@ -126,15 +128,22 @@ namespace psb
 
                         if(this->_arc->_providers.find(link) != this->_arc->_providers.end())
                             this->_arc->_providers[link].insert({.hash = hash, .sequence = sequence});
+
+                        post = true;
                     }
                 }
             }
         });
+
+        if(post)
+            this->_arc->_pipe.post();
     }
 
     template <typename type> void broadcast <type> :: available(const blockid & block, const std :: shared_ptr <class link> & link)
     {
         std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link << std :: endl;
+
+        bool post = false;
         this->_arc->_guard([&]()
         {
             auto transfer = this->_arc->_transfers.find(block.hash);
@@ -148,9 +157,14 @@ namespace psb
 
                     if(this->_arc->_providers.find(link) != this->_arc->_providers.end())
                         this->_arc->_providers[link].insert(block);
+
+                    post = true;
                 }
             }
         });
+
+        if(post)
+            this->_arc->_pipe.post();
     }
 
     template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const class block & block, const std :: shared_ptr <class link> & link)
@@ -200,6 +214,8 @@ namespace psb
             std :: cout << "Delivering batch " << blockid.hash << " (" << size << ")" << std :: endl;
             this->deliver({.hash = blockid.hash, .size = size});
         }
+
+        this->_arc->_pipe.post();
     }
 
     template <typename type> void broadcast <type> :: deliver(const batchinfo & info)
@@ -358,6 +374,9 @@ namespace psb
                 });
             }
         }
+
+        if(auto arc = warc.lock())
+            arc->_pipe.post();
     }
 
     template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link)
@@ -375,54 +394,17 @@ namespace psb
 
             this->_arc->_providers.erase(link);
         });
+
+        this->_arc->_pipe.post();
     }
 
     // Services
 
-    template <typename type> promise <void> broadcast <type> :: run(std :: weak_ptr <arc> warc)
+    template <typename type> promise <void> broadcast <type> :: drive(std :: weak_ptr <arc> warc)
     {
-        while(true)
+        while(auto arc = warc.lock())
         {
-            struct
-            {
-                size_t fast;
-                size_t secure;
-            } handshakes;
-
-            if(auto arc = warc.lock())
-            {
-                arc->_guard([&]()
-                {
-                    handshakes.fast = configuration :: lanes :: fast :: links - arc->_handshakes.fast - arc->_links.fast.size();
-                    handshakes.secure = configuration :: lanes :: secure :: links - arc->_handshakes.secure - arc->_links.secure.size();
-
-                    for(const auto & [hash, transfer] : arc->_transfers)
-                    {
-                        for(const auto & [sequence, providers] : transfer.providers)
-                        {
-                            for(const auto & provider : providers)
-                            {
-                                if(auto link = provider.lock())
-                                {
-                                    std :: cout << "Requesting block " << hash << "." << sequence << " from " << link << std :: endl;
-                                    link->request({.hash = hash, .sequence = sequence});
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            else
-                break;
-
-            for(size_t handshake = 0; handshake < handshakes.fast; handshake++)
-                this->link <fast> ();
-
-            for(size_t handshake = 0; handshake < handshakes.secure; handshake++)
-                this->link <secure> ();
-
-            co_await wait(0.1_s);
+            co_await arc->_pipe.wait();
         }
     }
 
