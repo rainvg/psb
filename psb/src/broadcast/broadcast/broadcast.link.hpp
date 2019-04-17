@@ -131,22 +131,25 @@ namespace psb
         this->keepalive(link);
     }
 
-    // Private methods
-
-    template <typename type> void broadcast <type> :: link :: shutdown(const std :: weak_ptr <arc> & warc, const std :: shared_ptr <link> & link)
+    template <typename type> void broadcast <type> :: link :: shutdown()
     {
         this->_guard([&]()
         {
             this->_alive = false;
         });
 
+        this->_pipe.post();
+    }
+
+    // Private methods
+
+    template <typename type> void broadcast <type> :: link :: unlink(const std :: weak_ptr <arc> & warc, const std :: shared_ptr <link> & link)
+    {
         if(auto arc = warc.lock())
         {
             broadcast broadcast = arc;
             broadcast.unlink(link);
         }
-
-        this->_pipe.post();
     }
 
     // Services
@@ -241,7 +244,8 @@ namespace psb
         }
         catch(...)
         {
-            this->shutdown(warc, link);
+            this->shutdown();
+            this->unlink(warc, link);
         }
     }
 
@@ -312,7 +316,8 @@ namespace psb
         }
         catch(...)
         {
-            this->shutdown(warc, link);
+            this->shutdown();
+            this->unlink(warc, link);
         }
     }
 

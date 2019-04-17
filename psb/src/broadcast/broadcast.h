@@ -97,7 +97,12 @@ namespace psb
 
                 struct secure
                 {
-                    static size_t links;
+                    struct links
+                    {
+                        static size_t max;
+                        static size_t min;
+                    };
+
                     static size_t requests;
                 };
             };
@@ -465,11 +470,13 @@ namespace psb
         promise <std :: vector <batchinfo>> sync(std :: weak_ptr <arc>, std :: shared_ptr <link>);
         void start(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
 
+        void shutdown();
+
     private:
 
         // Private methods
 
-        void shutdown(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
+        void unlink(const std :: weak_ptr <arc> &, const std :: shared_ptr <link> &);
 
         // Services
 

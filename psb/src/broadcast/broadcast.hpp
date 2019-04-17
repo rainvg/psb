@@ -26,7 +26,8 @@ namespace psb
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 3;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 3;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
 
     // Constructors
@@ -173,6 +174,9 @@ namespace psb
 
         bool deliver = this->_arc->_guard([&]()
         {
+            this->_arc->_requests.all.erase(blockid);
+            this->_arc->_requests.secure.erase(blockid);
+
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
             {
                 std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
@@ -404,6 +408,32 @@ namespace psb
     {
         while(auto arc = warc.lock())
         {
+            struct
+            {
+                size_t fast;
+                size_t secure;
+            } handshakes;
+
+            this->_arc->_guard([&]()
+            {
+                handshakes.fast = configuration :: lanes :: fast :: links - this->_arc->_handshakes.fast - this->_arc->_links.fast.size();
+
+                if((this->_arc->_handshakes.secure == 0) && (this->_arc->_links.secure.size() < configuration :: lanes :: secure :: links :: min))
+                {
+                    for(const auto & link : this->_arc->_links.secure)
+                        link->shutdown();
+
+                    this->_arc->_links.secure.clear();
+                    handshakes.secure = configuration :: lanes :: secure :: links :: max;
+                }
+            });
+
+            for(size_t handshake = 0; handshake < handshakes.fast; handshake++)
+                this->link <fast> ();
+
+            for(size_t handshake = 0; handshake < handshakes.secure; handshake++)
+                this->link <secure> ();
+
             co_await arc->_pipe.wait();
         }
     }
