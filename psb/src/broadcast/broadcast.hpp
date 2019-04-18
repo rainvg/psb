@@ -23,12 +23,12 @@ namespace psb
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 0;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 0;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 0;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 5;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 5;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 3;
 
     // Constructors
 
@@ -92,7 +92,14 @@ namespace psb
                 for(uint32_t sequence = 0; sequence < batch.size; sequence++)
                     this->_arc->_transfers[batch.hash].providers[sequence] = std :: vector <std :: weak_ptr <class link>> ();
 
+                std :: cout << "Transfer for " << batch.hash << " has now size " << this->_arc->_transfers[batch.hash].providers.size() << std :: endl;
+
                 this->_arc->_priority.push(batch.hash);
+
+                std :: cout << "Priority updated:" << std :: endl;
+                for(const auto & hash : this->_arc->_priority)
+                    std :: cout << "\t" << hash << std :: endl;
+
                 this->announce({.batch = batch, .available = false});
             }
         });
@@ -441,7 +448,89 @@ namespace psb
                 else
                     handshakes.secure = 0;
 
-                std :: cout << std :: endl << "Processing fast lane" << std :: endl;
+                size_t requests = configuration :: lanes :: secure :: requests - this->_arc->_requests.secure.size();
+                std :: cout << std :: endl << "Processing secure lane: " << requests << " requests missing." << std :: endl;
+
+                if(requests)
+                {
+                    [&]()
+                    {
+                        for(const auto & hash : this->_arc->_priority)
+                        {
+                            std :: cout << "Processing batch " << hash << " which has transfer of size " << this->_arc->_transfers[hash].providers.size() << std :: endl;
+
+                            std :: vector <uint32_t> sequences;
+                            for(const auto & [sequence, providers] : this->_arc->_transfers[hash].providers)
+                            {
+                                std :: cout << "Sequence " << sequence << " has " << providers.size() << " providers." << std :: endl;
+                                if(providers.size() && (this->_arc->_requests.all.find({.hash = hash, .sequence = sequence}) == this->_arc->_requests.all.end()))
+                                {
+                                    std :: cout << "Available and not yet requeted block: " << sequence << std :: endl;
+                                    sequences.push_back(sequence);
+                                }
+                            }
+
+                            if(!sequences.size())
+                            {
+                                std :: cout << "Nothing interesting in this batch." << std :: endl;
+                                continue;
+                            }
+
+                            shorthash shorthash;
+                            std :: sort(sequences.begin(), sequences.end(), [&](const uint32_t & lho, const uint32_t & rho)
+                            {
+                                return shorthash(lho) > shorthash(rho);
+                            });
+
+                            for(const auto & sequence : sequences)
+                            {
+                                struct
+                                {
+                                    std :: shared_ptr <class link> provider;
+                                    interval latency;
+                                } best {.latency = std :: numeric_limits <uint64_t> :: max()};
+
+                                std :: cout << "looking for best provider for block: " << sequence << std :: endl;
+
+                                for(const auto & wlink : this->_arc->_transfers[hash].providers[sequence])
+                                {
+                                    if(auto provider = wlink.lock())
+                                    {
+                                        if(provider->latency() * provider->requests() < best.latency)
+                                        {
+                                            std :: cout << "New best found: " << provider->id() << std :: endl;
+                                            best = {.latency = provider->latency() * provider->requests(), .provider = provider};
+                                        }
+                                    }
+                                }
+
+                                if(best.latency < std :: numeric_limits <uint64_t> :: max())
+                                {
+                                    try
+                                    {
+                                        blockid blockid = {.hash = hash, .sequence = sequence};
+                                        best.provider->request(blockid);
+                                        std :: cout << "Secure request done: " << hash << "." << sequence << std :: endl;
+                                        this->_arc->_requests.all.insert(blockid);
+                                        this->_arc->_requests.secure.insert(blockid);
+
+                                        if(!(--requests))
+                                            return;
+                                    }
+                                    catch(...)
+                                    {
+                                        std :: cout << "Something went wrong while doing secure request." << std :: endl;
+                                    }
+                                }
+                            }
+                        }
+                    }();
+                }
+
+                std :: cout << std :: endl;
+
+
+                /*std :: cout << std :: endl << "Processing fast lane" << std :: endl;
                 for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
                 {
                     for(const auto & idle : this->_arc->_links.idle)
@@ -517,7 +606,7 @@ namespace psb
                 }
 
                 for(const auto & idle : pop)
-                    this->_arc->_links.idle.erase(idle);
+                    this->_arc->_links.idle.erase(idle);*/
             });
 
             for(size_t handshake = 0; handshake < handshakes.fast; handshake++)

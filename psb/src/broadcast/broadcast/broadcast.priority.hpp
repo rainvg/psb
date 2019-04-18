@@ -42,7 +42,7 @@ namespace psb
 
     template <typename type> hash broadcast <type> :: priority :: iterator :: operator * () const
     {
-        return this->_priority._fifo[this->_cursor];
+        return *(this->_priority._fifo[this->_cursor]);
     }
 
     // priority
