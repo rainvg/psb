@@ -151,7 +151,7 @@ namespace psb
 
         // Constructors
 
-        broadcast(const sampler <channels> &);
+        broadcast(const sampler <channels> &, const int &);
 
     private:
 
@@ -420,6 +420,7 @@ namespace psb
 
         // Members
 
+        int _id;
         bool _alive;
 
         struct
@@ -454,10 +455,11 @@ namespace psb
 
         // Constructors
 
-        link(const connection &);
+        link(const connection &, const int &);
 
         // Getters
 
+        int id() const;
         size_t requests();
         interval latency();
 
@@ -550,6 +552,8 @@ namespace psb
 
         // Members
 
+        int _id;
+
         sponge _sponge;
 
         std :: unordered_map <blockid, class block, shorthash> _blocks;
@@ -593,7 +597,7 @@ namespace psb
 
         // Constructors
 
-        arc(const sampler <channels> &);
+        arc(const sampler <channels> &, const int &);
     };
 };
 

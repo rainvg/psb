@@ -11,11 +11,16 @@ namespace psb
 
     // Constructors
 
-    template <typename type> broadcast <type> :: link :: link(const connection & connection) : _chrono{.latency = 0, .keepalive = now()}, _connection(connection), _alive(true)
+    template <typename type> broadcast <type> :: link :: link(const connection & connection, const int & id) : _id(id), _chrono{.latency = 0, .keepalive = now()}, _connection(connection), _alive(true)
     {
     }
 
     // Getters
+
+    template <typename type> int broadcast <type> :: link :: id() const
+    {
+        return this->_id;
+    }
 
     template <typename type> size_t broadcast <type> :: link :: requests()
     {

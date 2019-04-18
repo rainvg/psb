@@ -26,13 +26,13 @@ namespace psb
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 3;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 3;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 0;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
 
     // Constructors
 
-    template <typename type> broadcast <type> :: broadcast(const sampler <channels> & sampler) : _arc(std :: make_shared <arc> (sampler))
+    template <typename type> broadcast <type> :: broadcast(const sampler <channels> & sampler, const int & id) : _arc(std :: make_shared <arc> (sampler, id))
     {
         this->drive(this->_arc);
         this->accept(this->_arc, sampler);
@@ -107,11 +107,14 @@ namespace psb
 
         for(const auto & link : this->_arc->_links.secure)
             link->announce(announcement);
+
+        for(const auto & link : this->_arc->_links.guest)
+            link->announce(announcement);
     }
 
     template <typename type> void broadcast <type> :: available(const hash & hash, const std :: shared_ptr <class link> & link)
     {
-        std :: cout << "Batch " << hash << " available on link " << link << std :: endl;
+        std :: cout << "Batch " << hash << " available on link " << link->id() << std :: endl;
 
         bool post = false;
         this->_arc->_guard([&]()
@@ -142,7 +145,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: available(const blockid & block, const std :: shared_ptr <class link> & link)
     {
-        std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link << std :: endl;
+        std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link->id() << std :: endl;
 
         bool post = false;
         this->_arc->_guard([&]()
@@ -180,12 +183,15 @@ namespace psb
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
             {
                 std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
-                std :: cout << "Link " << link << " has a latency of " << link->latency() << std :: endl;
+                std :: cout << "Link " << link->id() << " has a latency of " << link->latency() << std :: endl;
                 this->_arc->_blocks[blockid] = block;
             }
 
             if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()) && (link->requests() < configuration :: lanes :: fast :: requests))
+            {
+                std :: cout << "Adding " << link->id() << " to idle." << std :: endl;
                 this->_arc->_links.idle.insert(link);
+            }
 
             auto transfer = this->_arc->_transfers.find(blockid.hash);
             if(transfer != this->_arc->_transfers.end())
@@ -194,6 +200,9 @@ namespace psb
                     link->advertise(blockid);
 
                 for(const auto & link : this->_arc->_links.secure)
+                    link->advertise(blockid);
+
+                for(const auto & link : this->_arc->_links.guest)
                     link->advertise(blockid);
 
                 transfer->second.providers.erase(blockid.sequence);
@@ -310,9 +319,12 @@ namespace psb
                     co_return co_await sampler.template connect <gossip> ();
             }();
 
-            auto link = std :: make_shared <class link> (connection);
+            co_await connection.send(this->_arc->_id);
+            auto id = co_await connection.template receive <int> ();
 
-            std :: cout << "Linking <" << std :: array <const char *, 3> {"fast", "secure", "guest"}[linklane] << "> " << connection.remote() << ": " << link << std :: endl;
+            auto link = std :: make_shared <class link> (connection, id);
+
+            std :: cout << "Linking <" << std :: array <const char *, 3> {"fast", "secure", "guest"}[linklane] << "> " << connection.remote() << ": " << link->id() << std :: endl;
 
             std :: vector <batchinfo> sync = co_await link->sync(warc, link);
 
@@ -388,13 +400,13 @@ namespace psb
         this->_arc->_guard([&]()
         {
             if(this->_arc->_links.fast.erase(link))
-                std :: cout << "Unlinking  <fast> : " << link << std :: endl;
+                std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl;
             if(this->_arc->_links.secure.erase(link))
-                std :: cout << "Unlinking  <secure> : " << link << std :: endl;
+                std :: cout << "Unlinking  <secure> : " << link->id() << std :: endl;
             this->_arc->_links.idle.erase(link);
 
             if(this->_arc->_links.guest.erase(link))
-                std :: cout << "Unlinking  <guest> : " << link << std :: endl;
+                std :: cout << "Unlinking  <guest> : " << link->id() << std :: endl;
 
             this->_arc->_providers.erase(link);
         });
@@ -429,62 +441,83 @@ namespace psb
                 else
                     handshakes.secure = 0;
 
-                // for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
-                // {
-                //     for(const auto & idle : this->_arc->_links.idle)
-                //     {
-                //         if(idle->requests() == requests)
-                //         {
-                //             struct
-                //             {
-                //                 hash hash;
-                //                 std :: vector <uint32_t> sequences;
-                //                 uint64_t priority;
-                //             } best {.priority = std :: numeric_limits <uint64_t> :: max()};
-                //
-                //             std :: vector <blockid> pop;
-                //
-                //             for(const auto & blockid : this->_arc->_providers[idle])
-                //             {
-                //                 if((this->_arc->_transfers.find(blockid.hash) == this->_arc->_transfers.end()) || (this->_arc->_transfers[blockid.hash].providers.find(blockid.sequence) != this->_arc->_transfers[blockid.hash].providers.end()))
-                //                 {
-                //                     pop.push_back(blockid);
-                //                     continue;
-                //                 }
-                //
-                //                 if(this->_arc->_requests.all.find(blockid) != this->_arc->_requests.all.end())
-                //                     continue;
-                //
-                //                 if(blockid.hash == best.hash)
-                //                     best.sequences.push_back(blockid.sequence);
-                //                 else if(this->_arc->_priority[blockid.hash] < best.priority)
-                //                 {
-                //                     best.hash = blockid.hash;
-                //                     best.sequences.clear();
-                //                     best.sequences.push_back(blockid.sequence);
-                //                     best.priority = this->_arc->_priority[blockid.hash];
-                //                 }
-                //             }
-                //
-                //             blockid blockid = {.hash = best.hash, .sequence = best.sequences[rand() % best.sequences.size()]};
-                //             idle->request(blockid);
-                //             this->_arc->_requests.all.insert(blockid);
-                //
-                //             for(const auto & blockid : pop)
-                //                 this->_arc->_providers[idle].erase(blockid);
-                //         }
-                //     }
-                // }
-                //
-                // std :: vector <std :: shared_ptr <class link>> pop;
-                // for(const auto & idle : this->_arc->_links.idle)
-                // {
-                //     if(idle->requests() >= configuration :: lanes :: fast :: requests)
-                //         pop.push_back(idle);
-                // }
-                //
-                // for(const auto & idle : pop)
-                //     this->_arc->_links.idle.erase(idle);
+                std :: cout << std :: endl << "Processing fast lane" << std :: endl;
+                for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
+                {
+                    for(const auto & idle : this->_arc->_links.idle)
+                    {
+                        std :: cout << "Idle loop: " << idle->id() << std :: endl;
+                        if(idle->requests() == requests)
+                        {
+                            std :: cout << "Link has " << requests << " requests." << std :: endl;
+                            struct
+                            {
+                                hash hash;
+                                std :: vector <uint32_t> sequences;
+                                uint64_t priority;
+                            } best {.priority = std :: numeric_limits <uint64_t> :: max()};
+
+                            std :: vector <blockid> pop;
+
+                            for(const auto & blockid : this->_arc->_providers[idle])
+                            {
+                                std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " available." << std :: endl;
+                                if((this->_arc->_transfers.find(blockid.hash) == this->_arc->_transfers.end()) || (this->_arc->_transfers[blockid.hash].providers.find(blockid.sequence) == this->_arc->_transfers[blockid.hash].providers.end()))
+                                {
+                                    std :: cout << "Already obtained." << std :: endl;
+                                    pop.push_back(blockid);
+                                    continue;
+                                }
+
+                                if(this->_arc->_requests.all.find(blockid) != this->_arc->_requests.all.end())
+                                {
+                                    std :: cout << "Already requested." << std :: endl;
+                                    continue;
+                                }
+
+                                if(blockid.hash == best.hash)
+                                {
+                                    std :: cout << "Hash already seen." << std :: endl;
+                                    best.sequences.push_back(blockid.sequence);
+                                }
+                                else if(this->_arc->_priority[blockid.hash] < best.priority)
+                                {
+                                    std :: cout << "Hash has higher priority." << std :: endl;
+                                    best.hash = blockid.hash;
+                                    best.sequences.clear();
+                                    best.sequences.push_back(blockid.sequence);
+                                    best.priority = this->_arc->_priority[blockid.hash];
+                                }
+                            }
+
+                            if(best.priority < std :: numeric_limits <uint64_t> :: max())
+                            {
+                                std :: cout << "Requesting block one block out of " << best.sequences.size() << " availables." << std :: endl;
+                                blockid blockid = {.hash = best.hash, .sequence = best.sequences[rand() % best.sequences.size()]};
+                                std :: cout << "Requesting " << blockid.hash << "." << blockid.sequence << std :: endl;
+                                idle->request(blockid);
+                                this->_arc->_requests.all.insert(blockid);
+                            }
+
+                            for(const auto & blockid : pop)
+                            {
+                                std :: cout << "Popping block " << blockid.hash << "." << blockid.sequence << std :: endl;
+                                this->_arc->_providers[idle].erase(blockid);
+                            }
+                        }
+                    }
+                }
+                std :: cout << std :: endl;
+
+                std :: vector <std :: shared_ptr <class link>> pop;
+                for(const auto & idle : this->_arc->_links.idle)
+                {
+                    if(idle->requests() >= configuration :: lanes :: fast :: requests)
+                        pop.push_back(idle);
+                }
+
+                for(const auto & idle : pop)
+                    this->_arc->_links.idle.erase(idle);
             });
 
             for(size_t handshake = 0; handshake < handshakes.fast; handshake++)

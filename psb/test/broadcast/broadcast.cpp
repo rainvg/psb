@@ -65,16 +65,20 @@ namespace
         std :: cout << "Press enter to start the peer " << getpid() << "." << std :: endl;
         std :: cin.ignore();
 
-        broadcast <uint64_t> mybroadcast(sampler);
+        broadcast <uint64_t> mybroadcast(sampler, getpid());
 
         std :: ofstream log;
         std :: string filename = "tmp/logs/" + std :: to_string(getpid()) + ".txt";
 
         log.open(filename, std :: ios :: out);
 
+        guard <simple> fileguard;
+
         mybroadcast.on <broadcast <uint64_t> :: batch> ([&](const auto & batch)
         {
-            log << batch.info.hash << ":" << batch.info.size << std :: endl;
+            fileguard([&](){
+                log << batch.info.hash << ":" << batch.info.size << std :: endl;
+            });
         });
 
         signer signer;
@@ -236,7 +240,8 @@ namespace
 
     $test("broadcast/active", []
     {
-        peer(5000);
+        //broadcast <uint64_t> :: configuration :: lanes :: fast :: links = 0;
+        peer(1500);
     });
 
     $test("broadcast/passive", []
