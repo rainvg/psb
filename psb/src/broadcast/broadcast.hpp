@@ -426,6 +426,65 @@ namespace psb
                     this->_arc->_links.secure.clear();
                     handshakes.secure = configuration :: lanes :: secure :: links :: max;
                 }
+                else
+                    handshakes.secure = 0;
+
+                // for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
+                // {
+                //     for(const auto & idle : this->_arc->_links.idle)
+                //     {
+                //         if(idle->requests() == requests)
+                //         {
+                //             struct
+                //             {
+                //                 hash hash;
+                //                 std :: vector <uint32_t> sequences;
+                //                 uint64_t priority;
+                //             } best {.priority = std :: numeric_limits <uint64_t> :: max()};
+                //
+                //             std :: vector <blockid> pop;
+                //
+                //             for(const auto & blockid : this->_arc->_providers[idle])
+                //             {
+                //                 if((this->_arc->_transfers.find(blockid.hash) == this->_arc->_transfers.end()) || (this->_arc->_transfers[blockid.hash].providers.find(blockid.sequence) != this->_arc->_transfers[blockid.hash].providers.end()))
+                //                 {
+                //                     pop.push_back(blockid);
+                //                     continue;
+                //                 }
+                //
+                //                 if(this->_arc->_requests.all.find(blockid) != this->_arc->_requests.all.end())
+                //                     continue;
+                //
+                //                 if(blockid.hash == best.hash)
+                //                     best.sequences.push_back(blockid.sequence);
+                //                 else if(this->_arc->_priority[blockid.hash] < best.priority)
+                //                 {
+                //                     best.hash = blockid.hash;
+                //                     best.sequences.clear();
+                //                     best.sequences.push_back(blockid.sequence);
+                //                     best.priority = this->_arc->_priority[blockid.hash];
+                //                 }
+                //             }
+                //
+                //             blockid blockid = {.hash = best.hash, .sequence = best.sequences[rand() % best.sequences.size()]};
+                //             idle->request(blockid);
+                //             this->_arc->_requests.all.insert(blockid);
+                //
+                //             for(const auto & blockid : pop)
+                //                 this->_arc->_providers[idle].erase(blockid);
+                //         }
+                //     }
+                // }
+                //
+                // std :: vector <std :: shared_ptr <class link>> pop;
+                // for(const auto & idle : this->_arc->_links.idle)
+                // {
+                //     if(idle->requests() >= configuration :: lanes :: fast :: requests)
+                //         pop.push_back(idle);
+                // }
+                //
+                // for(const auto & idle : pop)
+                //     this->_arc->_links.idle.erase(idle);
             });
 
             for(size_t handshake = 0; handshake < handshakes.fast; handshake++)
