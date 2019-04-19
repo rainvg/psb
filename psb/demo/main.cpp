@@ -86,7 +86,7 @@ int main(int argc, const char ** args)
     {
         std :: cout << "Usage: " << std :: endl;
         std :: cout << "\t./demo.out rendezvous" << std :: endl;
-        std :: cout << "\t./demo.out peer [peer id] [rendezvous ip] [setup time] [sources] [broadcasts] [broadcasts/second] [batch size] [release timeout]" << std :: endl;
+        std :: cout << "\t./demo.out peer [rendezvous ip] [setup time] [sources] [broadcasts] [broadcasts/second] [batch size] [release timeout] [peer id]" << std :: endl;
         return -1;
     };
 
@@ -105,14 +105,14 @@ int main(int argc, const char ** args)
 
         try
         {
-            int id = std :: stoi(args[2]);
-            class address :: ip directory(args[3]);
-            double setuptime = std :: stof(args[4]);
-            int sources = std :: stoi(args[5]);
-            int broadcasts = std :: stoi(args[6]);
-            double frequency = std :: stof(args[7]);
-            int batchsize = std :: stoi(args[8]);
-            double timeout = std :: stof(args[9]);
+            class address :: ip directory(args[2]);
+            double setuptime = std :: stof(args[3]);
+            int sources = std :: stoi(args[4]);
+            int broadcasts = std :: stoi(args[5]);
+            double frequency = std :: stof(args[6]);
+            int batchsize = std :: stoi(args[7]);
+            double timeout = std :: stof(args[8]);
+            int id = std :: stoi(args[9]);
 
             :: peer(id, directory, 1_s * setuptime, sources, broadcasts, 1_s / frequency, batchsize, 1_s * timeout);
         }
