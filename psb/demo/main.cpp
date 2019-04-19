@@ -37,20 +37,23 @@ void rendezvous()
         sleep(1_h);
 }
 
-void peer(const int & id, const class address :: ip & directory, const interval & setuptime, const uint32_t & iterations)
+void peer(const int & id, const class address :: ip & directory, const interval & setuptime, const int & sources, const int & broadcasts, const interval & period, const int & batchsize, const interval & timeout)
 {
+    broadcast <uint64_t> :: configuration :: sponge :: capacity = batchsize;
+    broadcast <uint64_t> :: configuration :: sponge :: timeout = timeout;
+
     std :: cout << "Starting sampler." << std :: endl;
 
     auto sampler = directory :: sample <channels> ({directory, settings :: directory :: port});
 
-    std :: cout << "Starting broadcast." << std :: endl;
-
     sleep(setuptime);
 
-    broadcast <uint64_t> mybroadcast(sampler, getpid());
+    std :: cout << "Starting broadcast." << std :: endl;
+
+    broadcast <uint64_t> mybroadcast(sampler, id);
 
     std :: ofstream log;
-    std :: string filename = "tmp/logs/" + std :: to_string(id) + ".txt";
+    std :: string filename = "logs/" + std :: to_string(id) + ".txt";
 
     log.open(filename, std :: ios :: out);
 
@@ -63,11 +66,14 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         });
     });
 
-    signer signer;
-    for(uint64_t sequence = 0; sequence < iterations; sequence++)
+    if(id < sources)
     {
-        mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence));
-        sleep(0.2_s);
+        signer signer;
+        for(uint64_t sequence = 0; sequence < broadcasts; sequence++)
+        {
+            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence));
+            sleep(period);
+        }
     }
 
     while(true)
@@ -80,7 +86,7 @@ int main(int argc, const char ** args)
     {
         std :: cout << "Usage: " << std :: endl;
         std :: cout << "\t./demo.out rendezvous" << std :: endl;
-        std :: cout << "\t./demo.out peer [rendezvous ip] [peer id] [configuration file]" << std :: endl;
+        std :: cout << "\t./demo.out peer [peer id] [rendezvous ip] [setup time] [sources] [broadcasts] [broadcasts/second] [batch size] [release timeout]" << std :: endl;
         return -1;
     };
 
@@ -94,13 +100,21 @@ int main(int argc, const char ** args)
         rendezvous();
     else
     {
-        if(argc < 5)
+        if(argc < 10)
             return usage();
 
         try
         {
-            class address :: ip directory(args[2]);
-            int id = std :: stoi(args[3]);
+            int id = std :: stoi(args[2]);
+            class address :: ip directory(args[3]);
+            double setuptime = std :: stof(args[4]);
+            int sources = std :: stoi(args[5]);
+            int broadcasts = std :: stoi(args[6]);
+            double frequency = std :: stof(args[7]);
+            int batchsize = std :: stoi(args[8]);
+            double timeout = std :: stof(args[9]);
+
+            :: peer(id, directory, 1_s * setuptime, sources, broadcasts, 1_s / frequency, batchsize, 1_s * timeout);
         }
         catch(...)
         {
