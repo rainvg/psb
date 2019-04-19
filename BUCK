@@ -42,7 +42,7 @@ psb['flags']['release'] = {
     'linker': []
 }
 
-# Test sources & headers
+# Test & demo sources & headers
 
 test = {
     'sources': glob([
@@ -51,6 +51,16 @@ test = {
     'headers': subdir_glob([
       ('psb/test', '**/*.h'),
       ('psb/test', '**/*.hpp'),
+    ])
+}
+
+demo = {
+    'sources': glob([
+      'psb/demo/**/*.cpp',
+    ]),
+    'headers': subdir_glob([
+      ('psb/demo', '**/*.h'),
+      ('psb/demo', '**/*.hpp'),
     ])
 }
 
@@ -71,6 +81,16 @@ cxx_binary(
   name = 'test',
   srcs = test['sources'],
   headers =  test['headers'],
+  compiler_flags = psb['flags']['common']['compiler'] + psb['flags'][mode]['compiler'],
+  linker_flags = psb['flags']['common']['linker'] + psb['flags'][mode]['linker'],
+  deps = [":psb"],
+  visibility = []
+)
+
+cxx_binary(
+  name = 'demo',
+  srcs = demo['sources'],
+  headers =  demo['headers'],
   compiler_flags = psb['flags']['common']['compiler'] + psb['flags'][mode]['compiler'],
   linker_flags = psb['flags']['common']['linker'] + psb['flags'][mode]['linker'],
   deps = [":psb"],
