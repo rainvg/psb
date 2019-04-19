@@ -68,6 +68,11 @@ namespace psb
             {
                 static constexpr interval keepalive = 5_s;
             };
+
+            struct drive
+            {
+                static constexpr interval wakeinterval = 10_s;
+            };
         };
 
     public:

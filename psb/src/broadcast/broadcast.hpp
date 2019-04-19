@@ -36,6 +36,18 @@ namespace psb
     {
         this->drive(this->_arc);
         this->accept(this->_arc, sampler);
+
+        [](std :: weak_ptr <arc> warc) -> promise <void>
+        {
+            while(true)
+            {
+                co_await wait(settings :: drive :: wakeinterval);
+                if(auto arc = warc.lock())
+                    arc->_pipe.post();
+                else
+                    break;
+            }
+        }(this->_arc);
     }
 
     // Private constructors
