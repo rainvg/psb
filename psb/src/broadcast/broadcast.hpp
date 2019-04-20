@@ -23,8 +23,8 @@ namespace psb
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 0;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 4;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: churn :: period = 10;
     template <typename type> double broadcast <type> :: configuration :: lanes :: fast :: churn :: percentile = 0.2;
@@ -593,7 +593,7 @@ namespace psb
                 {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
 
-                /*{cmtx.lock(); std :: cout << std :: endl << "Processing fast lane" << std :: endl; cmtx.unlock();}
+                {cmtx.lock(); std :: cout << std :: endl << "Processing fast lane" << std :: endl; cmtx.unlock();}
                 for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
                 {
                     for(const auto & idle : this->_arc->_links.idle)
@@ -658,7 +658,7 @@ namespace psb
                             }
                         }
                     }
-                }*/
+                }
                 {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
                 std :: vector <std :: shared_ptr <class link>> pop;
