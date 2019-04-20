@@ -150,10 +150,18 @@ namespace psb
 
     template <typename type> void broadcast <type> :: link :: unlink(const std :: weak_ptr <arc> & warc, const std :: shared_ptr <link> & link)
     {
+        std :: vector <blockid> outstanding;
+
+        this->_guard([&]()
+        {
+            outstanding.swap(this->_requests.pending);
+            outstanding.insert(outstanding.end(), this->_requests.local.begin(), this->_requests.local.end());
+        });
+
         if(auto arc = warc.lock())
         {
             broadcast broadcast = arc;
-            broadcast.unlink(link);
+            broadcast.unlink(link, outstanding);
         }
     }
 

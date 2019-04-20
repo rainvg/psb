@@ -203,7 +203,7 @@ namespace psb
         void release(const std :: vector <class block> &);
 
         template <lane, typename... connections> promise <void> link(const connections & ...);
-        void unlink(const std :: shared_ptr <class link> &);
+        void unlink(const std :: shared_ptr <class link> &, const std :: vector <blockid> &);
 
         // Services
 
@@ -604,7 +604,7 @@ namespace psb
         {
             size_t trigger;
         } _churn;
-        
+
         struct
         {
             std :: unordered_set <std :: shared_ptr <class link>> fast;

@@ -441,10 +441,16 @@ namespace psb
             arc->_pipe.post();
     }
 
-    template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link)
+    template <typename type> void broadcast <type> :: unlink(const std :: shared_ptr <class link> & link, const std :: vector <blockid> & outstanding)
     {
         this->_arc->_guard([&]()
         {
+            for(const auto & request : outstanding)
+            {
+                this->_arc->_requests.all.erase(request);
+                this->_arc->_requests.secure.erase(request);
+            }
+
             if(this->_arc->_links.fast.erase(link))
                 {cmtx.lock(); std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl; cmtx.unlock();}
             if(this->_arc->_links.secure.erase(link))
