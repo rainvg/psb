@@ -62,7 +62,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
     mybroadcast.on <broadcast <uint64_t> :: batch> ([&](const auto & batch)
     {
         fileguard([&](){
-            log << batch.info.hash << ":" << batch.info.size << std :: endl;
+            log << (uint64_t) now() << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
         });
     });
 

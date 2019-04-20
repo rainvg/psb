@@ -26,12 +26,12 @@ namespace psb
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 5;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: churn :: period = 2;
-    template <typename type> double broadcast <type> :: configuration :: lanes :: fast :: churn :: percentile = 0.4;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: churn :: period = 10;
+    template <typename type> double broadcast <type> :: configuration :: lanes :: fast :: churn :: percentile = 0.2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 0;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 0;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 8;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 6;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 3;
 
     // Constructors
 
