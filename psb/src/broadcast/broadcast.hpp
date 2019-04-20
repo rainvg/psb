@@ -23,8 +23,8 @@ namespace psb
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 5;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 0;
 
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: churn :: period = 10;
     template <typename type> double broadcast <type> :: configuration :: lanes :: fast :: churn :: percentile = 0.2;
@@ -474,7 +474,7 @@ namespace psb
 
             this->_arc->_guard([&]()
             {
-                {cmtx.lock(); std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl; cmtx.unlock();}
+                /*{cmtx.lock(); std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl; cmtx.unlock();}
                 if(this->_arc->_churn.trigger >= (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links))
                 {
                     this->_arc->_churn.trigger = 0;
@@ -496,7 +496,7 @@ namespace psb
                         {cmtx.lock(); std :: cout << "Unlinking slow link " << links[index]->id() << " from fast lane, its latency is " << links[index]->latency() << std :: endl; cmtx.unlock();}
                         links[index]->shutdown();
                     }
-                }
+                }*/
 
                 handshakes.fast = configuration :: lanes :: fast :: links - this->_arc->_handshakes.fast - this->_arc->_links.fast.size();
 
@@ -593,7 +593,7 @@ namespace psb
                 {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
 
-                {cmtx.lock(); std :: cout << std :: endl << "Processing fast lane" << std :: endl; cmtx.unlock();}
+                /*{cmtx.lock(); std :: cout << std :: endl << "Processing fast lane" << std :: endl; cmtx.unlock();}
                 for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
                 {
                     for(const auto & idle : this->_arc->_links.idle)
@@ -658,7 +658,7 @@ namespace psb
                             }
                         }
                     }
-                }
+                }*/
                 {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
                 std :: vector <std :: shared_ptr <class link>> pop;

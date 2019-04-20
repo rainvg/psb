@@ -1,6 +1,6 @@
 ### Temporary files ###
 
-tmp/
+app-logs/
 
 # Created by https://www.gitignore.io/api/osx,c++,buck,linux,windows (+ buckaroo, added manually)
 
