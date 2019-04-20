@@ -7,6 +7,10 @@
 #include <drop/network/connection.hpp>
 #include <drop/network/tcp.hpp>
 
+// std :: cout mutex
+
+std :: mutex cmtx;
+
 // Includes
 
 #include "psb/broadcast/broadcast.hpp"

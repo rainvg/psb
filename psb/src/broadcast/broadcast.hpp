@@ -110,18 +110,18 @@ namespace psb
         {
             if(!(this->announced(batch.hash)))
             {
-                std :: cout << "Spotted new batch: " << batch.hash << " (" << batch.size << ")" << std :: endl;
+                {cmtx.lock(); std :: cout << "Spotted new batch: " << batch.hash << " (" << batch.size << ")" << std :: endl; cmtx.unlock();}
                 this->_arc->_transfers[batch.hash] = transfer{.size = batch.size};
                 for(uint32_t sequence = 0; sequence < batch.size; sequence++)
                     this->_arc->_transfers[batch.hash].providers[sequence] = std :: vector <std :: weak_ptr <class link>> ();
 
-                std :: cout << "Transfer for " << batch.hash << " has now size " << this->_arc->_transfers[batch.hash].providers.size() << std :: endl;
+                {cmtx.lock(); std :: cout << "Transfer for " << batch.hash << " has now size " << this->_arc->_transfers[batch.hash].providers.size() << std :: endl; cmtx.unlock();}
 
                 this->_arc->_priority.push(batch.hash);
 
-                std :: cout << "Priority updated:" << std :: endl;
+                {cmtx.lock(); std :: cout << "Priority updated:" << std :: endl; cmtx.unlock();}
                 for(const auto & hash : this->_arc->_priority)
-                    std :: cout << "\t" << hash << std :: endl;
+                    {cmtx.lock(); std :: cout << "\t" << hash << std :: endl; cmtx.unlock();}
 
                 this->announce({.batch = batch, .available = false});
             }
@@ -144,7 +144,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: available(const hash & hash, const std :: shared_ptr <class link> & link)
     {
-        std :: cout << "Batch " << hash << " available on link " << link->id() << std :: endl;
+        {cmtx.lock(); std :: cout << "Batch " << hash << " available on link " << link->id() << std :: endl; cmtx.unlock();}
 
         bool post = false;
         this->_arc->_guard([&]()
@@ -175,7 +175,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: available(const blockid & block, const std :: shared_ptr <class link> & link)
     {
-        std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link->id() << std :: endl;
+        {cmtx.lock(); std :: cout << "Block " << block.hash << "." << block.sequence << " available on link " << link->id() << std :: endl; cmtx.unlock();}
 
         bool post = false;
         this->_arc->_guard([&]()
@@ -215,8 +215,8 @@ namespace psb
 
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
             {
-                std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl;
-                std :: cout << "Link " << link->id() << " has a latency of " << link->latency() << std :: endl;
+                {cmtx.lock(); std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " obtained." << std :: endl; cmtx.unlock();}
+                {cmtx.lock(); std :: cout << "Link " << link->id() << " has a latency of " << link->latency() << std :: endl; cmtx.unlock();}
                 this->_arc->_blocks[blockid] = block;
             }
 
@@ -226,7 +226,7 @@ namespace psb
 
                 if(link->requests() < configuration :: lanes :: fast :: requests)
                 {
-                    std :: cout << "Adding " << link->id() << " to idle." << std :: endl;
+                    {cmtx.lock(); std :: cout << "Adding " << link->id() << " to idle." << std :: endl; cmtx.unlock();}
                     this->_arc->_links.idle.insert(link);
                 }
             }
@@ -245,7 +245,7 @@ namespace psb
 
                 transfer->second.providers.erase(blockid.sequence);
 
-                std :: cout << "Missing blocks: " << transfer->second.providers.size() << std :: endl;
+                {cmtx.lock(); std :: cout << "Missing blocks: " << transfer->second.providers.size() << std :: endl; cmtx.unlock();}
                 if(transfer->second.providers.size() == 0)
                 {
                     size = transfer->second.size;
@@ -262,7 +262,7 @@ namespace psb
 
         if(deliver)
         {
-            std :: cout << "Delivering batch " << blockid.hash << " (" << size << ")" << std :: endl;
+            {cmtx.lock(); std :: cout << "Delivering batch " << blockid.hash << " (" << size << ")" << std :: endl; cmtx.unlock();}
             this->deliver({.hash = blockid.hash, .size = size});
         }
 
@@ -290,7 +290,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: release(const std :: vector <class block> & blocks)
     {
-        std :: cout << "Releasing " << blocks.size() << " blocks:" << std :: endl;
+        {cmtx.lock(); std :: cout << "Releasing " << blocks.size() << " blocks:" << std :: endl; cmtx.unlock();}
 
         std :: vector <hash> proof;
 
@@ -300,14 +300,14 @@ namespace psb
             for(const auto & message : block)
             {
                 hasher.update(message);
-                std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl;
+                {cmtx.lock(); std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl; cmtx.unlock();}
             }
 
             proof.push_back(hasher.finalize());
         }
 
         batchinfo info = {.hash = proof, .size = static_cast <uint32_t> (blocks.size())};
-        std :: cout << "Batch info: " << info.hash << " (" << info.size << ")" << std :: endl;
+        {cmtx.lock(); std :: cout << "Batch info: " << info.hash << " (" << info.size << ")" << std :: endl; cmtx.unlock();}
 
         enum {delivered, transferring, released} state = this->_arc->_guard([&]()
         {
@@ -370,7 +370,7 @@ namespace psb
 
             auto link = std :: make_shared <class link> (connection, id);
 
-            std :: cout << "Linking <" << std :: array <const char *, 3> {"fast", "secure", "guest"}[linklane] << "> " << connection.remote() << ": " << link->id() << std :: endl;
+            {cmtx.lock(); std :: cout << "Linking <" << std :: array <const char *, 3> {"fast", "secure", "guest"}[linklane] << "> " << connection.remote() << ": " << link->id() << std :: endl; cmtx.unlock();}
 
             std :: vector <batchinfo> sync = co_await link->sync(warc, link);
 
@@ -446,13 +446,13 @@ namespace psb
         this->_arc->_guard([&]()
         {
             if(this->_arc->_links.fast.erase(link))
-                std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl;
+                {cmtx.lock(); std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl; cmtx.unlock();}
             if(this->_arc->_links.secure.erase(link))
-                std :: cout << "Unlinking  <secure> : " << link->id() << std :: endl;
+                {cmtx.lock(); std :: cout << "Unlinking  <secure> : " << link->id() << std :: endl; cmtx.unlock();}
             this->_arc->_links.idle.erase(link);
 
             if(this->_arc->_links.guest.erase(link))
-                std :: cout << "Unlinking  <guest> : " << link->id() << std :: endl;
+                {cmtx.lock(); std :: cout << "Unlinking  <guest> : " << link->id() << std :: endl; cmtx.unlock();}
 
             this->_arc->_providers.erase(link);
         });
@@ -474,7 +474,7 @@ namespace psb
 
             this->_arc->_guard([&]()
             {
-                std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl;
+                {cmtx.lock(); std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl; cmtx.unlock();}
                 if(this->_arc->_churn.trigger >= (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links))
                 {
                     this->_arc->_churn.trigger = 0;
@@ -483,7 +483,7 @@ namespace psb
                     for(const auto & link : this->_arc->_links.fast)
                     {
                         links.push_back(link);
-                        std :: cout << " -> " << link->id() << " has latency " << link->latency() << std :: endl;
+                        {cmtx.lock(); std :: cout << " -> " << link->id() << " has latency " << link->latency() << std :: endl; cmtx.unlock();}
                     }
 
                     std :: sort(links.begin(), links.end(), [&](const std :: shared_ptr <class link> & lho, const std :: shared_ptr <class link> & rho)
@@ -493,7 +493,7 @@ namespace psb
 
                     for(size_t index = 0; index < configuration :: lanes :: fast :: churn :: percentile * links.size(); index++)
                     {
-                        std :: cout << "Unlinking slow link " << links[index]->id() << " from fast lane, its latency is " << links[index]->latency() << std :: endl;
+                        {cmtx.lock(); std :: cout << "Unlinking slow link " << links[index]->id() << " from fast lane, its latency is " << links[index]->latency() << std :: endl; cmtx.unlock();}
                         links[index]->shutdown();
                     }
                 }
@@ -512,7 +512,7 @@ namespace psb
                     handshakes.secure = 0;
 
                 size_t requests = configuration :: lanes :: secure :: requests - this->_arc->_requests.secure.size();
-                std :: cout << std :: endl << "Processing secure lane: " << requests << " requests missing." << std :: endl;
+                {cmtx.lock(); std :: cout << std :: endl << "Processing secure lane: " << requests << " requests missing." << std :: endl; cmtx.unlock();}
 
                 if(requests)
                 {
@@ -520,22 +520,22 @@ namespace psb
                     {
                         for(const auto & hash : this->_arc->_priority)
                         {
-                            std :: cout << "Processing batch " << hash << " which has transfer of size " << this->_arc->_transfers[hash].providers.size() << std :: endl;
+                            {cmtx.lock(); std :: cout << "Processing batch " << hash << " which has transfer of size " << this->_arc->_transfers[hash].providers.size() << std :: endl; cmtx.unlock();}
 
                             std :: vector <uint32_t> sequences;
                             for(const auto & [sequence, providers] : this->_arc->_transfers[hash].providers)
                             {
-                                std :: cout << "Sequence " << sequence << " has " << providers.size() << " providers." << std :: endl;
+                                {cmtx.lock(); std :: cout << "Sequence " << sequence << " has " << providers.size() << " providers." << std :: endl; cmtx.unlock();}
                                 if(providers.size() && (this->_arc->_requests.all.find({.hash = hash, .sequence = sequence}) == this->_arc->_requests.all.end()))
                                 {
-                                    std :: cout << "Available and not yet requeted block: " << sequence << std :: endl;
+                                    {cmtx.lock(); std :: cout << "Available and not yet requeted block: " << sequence << std :: endl; cmtx.unlock();}
                                     sequences.push_back(sequence);
                                 }
                             }
 
                             if(!sequences.size())
                             {
-                                std :: cout << "Nothing interesting in this batch." << std :: endl;
+                                {cmtx.lock(); std :: cout << "Nothing interesting in this batch." << std :: endl; cmtx.unlock();}
                                 continue;
                             }
 
@@ -553,7 +553,7 @@ namespace psb
                                     interval latency;
                                 } best {.latency = std :: numeric_limits <uint64_t> :: max()};
 
-                                std :: cout << "looking for best provider for block: " << sequence << std :: endl;
+                                {cmtx.lock(); std :: cout << "looking for best provider for block: " << sequence << std :: endl; cmtx.unlock();}
 
                                 for(const auto & wlink : this->_arc->_transfers[hash].providers[sequence])
                                 {
@@ -561,7 +561,7 @@ namespace psb
                                     {
                                         if(provider->latency() * provider->requests() < best.latency)
                                         {
-                                            std :: cout << "New best found: " << provider->id() << std :: endl;
+                                            {cmtx.lock(); std :: cout << "New best found: " << provider->id() << std :: endl; cmtx.unlock();}
                                             best = {.latency = provider->latency() * provider->requests(), .provider = provider};
                                         }
                                     }
@@ -573,7 +573,7 @@ namespace psb
                                     {
                                         blockid blockid = {.hash = hash, .sequence = sequence};
                                         best.provider->request(blockid);
-                                        std :: cout << "Secure request done: " << hash << "." << sequence << std :: endl;
+                                        {cmtx.lock(); std :: cout << "Secure request done: " << hash << "." << sequence << std :: endl; cmtx.unlock();}
                                         this->_arc->_requests.all.insert(blockid);
                                         this->_arc->_requests.secure.insert(blockid);
 
@@ -582,7 +582,7 @@ namespace psb
                                     }
                                     catch(...)
                                     {
-                                        std :: cout << "Something went wrong while doing secure request." << std :: endl;
+                                        {cmtx.lock(); std :: cout << "Something went wrong while doing secure request." << std :: endl; cmtx.unlock();}
                                     }
                                 }
                             }
@@ -590,18 +590,18 @@ namespace psb
                     }();
                 }
 
-                std :: cout << std :: endl;
+                {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
 
-                std :: cout << std :: endl << "Processing fast lane" << std :: endl;
+                {cmtx.lock(); std :: cout << std :: endl << "Processing fast lane" << std :: endl; cmtx.unlock();}
                 for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
                 {
                     for(const auto & idle : this->_arc->_links.idle)
                     {
-                        std :: cout << "Idle loop: " << idle->id() << std :: endl;
+                        {cmtx.lock(); std :: cout << "Idle loop: " << idle->id() << std :: endl; cmtx.unlock();}
                         if(idle->requests() == requests)
                         {
-                            std :: cout << "Link has " << requests << " requests." << std :: endl;
+                            {cmtx.lock(); std :: cout << "Link has " << requests << " requests." << std :: endl; cmtx.unlock();}
                             struct
                             {
                                 hash hash;
@@ -613,28 +613,28 @@ namespace psb
 
                             for(const auto & blockid : this->_arc->_providers[idle])
                             {
-                                std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " available." << std :: endl;
+                                {cmtx.lock(); std :: cout << "Block " << blockid.hash << "." << blockid.sequence << " available." << std :: endl; cmtx.unlock();}
                                 if((this->_arc->_transfers.find(blockid.hash) == this->_arc->_transfers.end()) || (this->_arc->_transfers[blockid.hash].providers.find(blockid.sequence) == this->_arc->_transfers[blockid.hash].providers.end()))
                                 {
-                                    std :: cout << "Already obtained." << std :: endl;
+                                    {cmtx.lock(); std :: cout << "Already obtained." << std :: endl; cmtx.unlock();}
                                     pop.push_back(blockid);
                                     continue;
                                 }
 
                                 if(this->_arc->_requests.all.find(blockid) != this->_arc->_requests.all.end())
                                 {
-                                    std :: cout << "Already requested." << std :: endl;
+                                    {cmtx.lock(); std :: cout << "Already requested." << std :: endl; cmtx.unlock();}
                                     continue;
                                 }
 
                                 if(blockid.hash == best.hash)
                                 {
-                                    std :: cout << "Hash already seen." << std :: endl;
+                                    {cmtx.lock(); std :: cout << "Hash already seen." << std :: endl; cmtx.unlock();}
                                     best.sequences.push_back(blockid.sequence);
                                 }
                                 else if(this->_arc->_priority[blockid.hash] < best.priority)
                                 {
-                                    std :: cout << "Hash has higher priority." << std :: endl;
+                                    {cmtx.lock(); std :: cout << "Hash has higher priority." << std :: endl; cmtx.unlock();}
                                     best.hash = blockid.hash;
                                     best.sequences.clear();
                                     best.sequences.push_back(blockid.sequence);
@@ -644,22 +644,22 @@ namespace psb
 
                             if(best.priority < std :: numeric_limits <uint64_t> :: max())
                             {
-                                std :: cout << "Requesting block one block out of " << best.sequences.size() << " availables." << std :: endl;
+                                {cmtx.lock(); std :: cout << "Requesting block one block out of " << best.sequences.size() << " availables." << std :: endl; cmtx.unlock();}
                                 blockid blockid = {.hash = best.hash, .sequence = best.sequences[rand() % best.sequences.size()]};
-                                std :: cout << "Requesting " << blockid.hash << "." << blockid.sequence << std :: endl;
+                                {cmtx.lock(); std :: cout << "Requesting " << blockid.hash << "." << blockid.sequence << std :: endl; cmtx.unlock();}
                                 idle->request(blockid);
                                 this->_arc->_requests.all.insert(blockid);
                             }
 
                             for(const auto & blockid : pop)
                             {
-                                std :: cout << "Popping block " << blockid.hash << "." << blockid.sequence << std :: endl;
+                                {cmtx.lock(); std :: cout << "Popping block " << blockid.hash << "." << blockid.sequence << std :: endl; cmtx.unlock();}
                                 this->_arc->_providers[idle].erase(blockid);
                             }
                         }
                     }
                 }
-                std :: cout << std :: endl;
+                {cmtx.lock(); std :: cout << std :: endl; cmtx.unlock();}
 
                 std :: vector <std :: shared_ptr <class link>> pop;
                 for(const auto & idle : this->_arc->_links.idle)
