@@ -99,6 +99,12 @@ namespace psb
                 {
                     static size_t links;
                     static size_t requests;
+
+                    struct churn
+                    {
+                        static size_t period;
+                        static double percentile;
+                    };
                 };
 
                 struct secure
@@ -594,6 +600,11 @@ namespace psb
             size_t secure;
         } _handshakes;
 
+        struct
+        {
+            size_t trigger;
+        } _churn;
+        
         struct
         {
             std :: unordered_set <std :: shared_ptr <class link>> fast;

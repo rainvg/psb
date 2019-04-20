@@ -254,8 +254,9 @@ namespace psb
         catch(...)
         {
             this->shutdown();
-            this->unlink(warc, link);
         }
+
+        this->unlink(warc, link);
     }
 
     template <typename type> promise <void> broadcast <type> :: link :: receive(std :: weak_ptr <arc> warc, std :: shared_ptr <link> link)
@@ -336,8 +337,9 @@ namespace psb
         catch(...)
         {
             this->shutdown();
-            this->unlink(warc, link);
         }
+
+        this->unlink(warc, link);
     }
 
     template <typename type> promise <void> broadcast <type> :: link :: keepalive(std :: shared_ptr <link> link)

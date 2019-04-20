@@ -23,12 +23,15 @@ namespace psb
     template <typename type> interval broadcast <type> :: configuration :: sponge :: timeout = 5_s;
     template <typename type> double broadcast <type> :: configuration :: link :: lambda = 0.1;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: links = 5;
     template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: requests = 2;
 
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 5;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 5;
-    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 3;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: fast :: churn :: period = 2;
+    template <typename type> double broadcast <type> :: configuration :: lanes :: fast :: churn :: percentile = 0.4;
+
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: max = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: links :: min = 0;
+    template <typename type> size_t broadcast <type> :: configuration :: lanes :: secure :: requests = 0;
 
     // Constructors
 
@@ -217,10 +220,15 @@ namespace psb
                 this->_arc->_blocks[blockid] = block;
             }
 
-            if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()) && (link->requests() < configuration :: lanes :: fast :: requests))
+            if(link && (this->_arc->_links.fast.find(link) != this->_arc->_links.fast.end()))
             {
-                std :: cout << "Adding " << link->id() << " to idle." << std :: endl;
-                this->_arc->_links.idle.insert(link);
+                this->_arc->_churn.trigger++;
+
+                if(link->requests() < configuration :: lanes :: fast :: requests)
+                {
+                    std :: cout << "Adding " << link->id() << " to idle." << std :: endl;
+                    this->_arc->_links.idle.insert(link);
+                }
             }
 
             auto transfer = this->_arc->_transfers.find(blockid.hash);
@@ -466,6 +474,30 @@ namespace psb
 
             this->_arc->_guard([&]()
             {
+                std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl;
+                if(this->_arc->_churn.trigger >= (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links))
+                {
+                    this->_arc->_churn.trigger = 0;
+
+                    std :: vector <std :: shared_ptr <class link>> links;
+                    for(const auto & link : this->_arc->_links.fast)
+                    {
+                        links.push_back(link);
+                        std :: cout << " -> " << link->id() << " has latency " << link->latency() << std :: endl;
+                    }
+
+                    std :: sort(links.begin(), links.end(), [&](const std :: shared_ptr <class link> & lho, const std :: shared_ptr <class link> & rho)
+                    {
+                        return lho->latency() > rho->latency();
+                    });
+
+                    for(size_t index = 0; index < configuration :: lanes :: fast :: churn :: percentile * links.size(); index++)
+                    {
+                        std :: cout << "Unlinking slow link " << links[index]->id() << " from fast lane, its latency is " << links[index]->latency() << std :: endl;
+                        links[index]->shutdown();
+                    }
+                }
+
                 handshakes.fast = configuration :: lanes :: fast :: links - this->_arc->_handshakes.fast - this->_arc->_links.fast.size();
 
                 if((this->_arc->_handshakes.secure == 0) && (this->_arc->_links.secure.size() < configuration :: lanes :: secure :: links :: min))
@@ -561,7 +593,7 @@ namespace psb
                 std :: cout << std :: endl;
 
 
-                /*std :: cout << std :: endl << "Processing fast lane" << std :: endl;
+                std :: cout << std :: endl << "Processing fast lane" << std :: endl;
                 for(size_t requests = 0; requests < configuration :: lanes :: fast :: requests; requests++)
                 {
                     for(const auto & idle : this->_arc->_links.idle)
@@ -637,7 +669,7 @@ namespace psb
                 }
 
                 for(const auto & idle : pop)
-                    this->_arc->_links.idle.erase(idle);*/
+                    this->_arc->_links.idle.erase(idle);
             });
 
             for(size_t handshake = 0; handshake < handshakes.fast; handshake++)
