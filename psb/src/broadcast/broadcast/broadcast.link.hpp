@@ -168,7 +168,7 @@ namespace psb
                 std :: vector <announcement> announcements;
                 std :: unordered_set <blockid, shorthash> advertisements;
                 std :: vector <blockid> requests;
-                variant <blockid, class block> block;
+                variant <blockid, payload> payload;
 
                 if(auto arc = warc.lock())
                 {
@@ -191,13 +191,23 @@ namespace psb
                         }
                         else if(this->_requests.remote.size())
                         {
-                            block = this->_requests.remote.front();
+                            payload = this->_requests.remote.front();
                             this->_requests.remote.pop_front();
+
                         }
                     });
 
-                    if(block)
-                        block = broadcast.block(block.template reinterpret <blockid> ());
+                    if(payload)
+                    {
+                        blockid blockid = payload.template reinterpret <class blockid> ();
+                        payload = (class payload){.proof = broadcast.proof(blockid.hash)};
+
+                        class block block = broadcast.block(blockid);
+                        payload.template reinterpret <class payload> ().messages.reserve(block.size());
+
+                        for(const auto & message : block)
+                            payload.template reinterpret <class payload> ().messages.push_back(message);
+                    }
                 }
                 else
                     exception <arc_expired> :: raise(this);
@@ -225,15 +235,9 @@ namespace psb
                     continue;
                 }
 
-                if(block)
+                if(payload)
                 {
-                    std :: vector <message> messages;
-                    messages.reserve(block.template reinterpret <class block> ().size());
-
-                    for(const auto & message : block.template reinterpret <class block> ())
-                        messages.push_back(message);
-
-                    co_await this->_connection.template send <transaction> (messages);
+                    co_await this->_connection.template send <transaction> (payload.template reinterpret <class payload> ());
                     continue;
                 }
 
@@ -288,7 +292,7 @@ namespace psb
                         });
 
                         this->_pipe.post();
-                    }, [&](const std :: vector <message> & messages)
+                    }, [&](const payload & payload)
                     {
                         blockid blockid;
 
@@ -312,7 +316,17 @@ namespace psb
                             this->_chrono.last = now();
                         });
 
-                        broadcast.dispatch(blockid, messages, link);
+                        if(hash(payload.proof) != blockid.hash)
+                            exception <malformed_block, hash_mismatch> :: raise(this);
+
+                        hash :: state hasher;
+                        for(const auto & message : payload.messages)
+                            hasher.update(message);
+
+                        if(hasher.finalize() != payload.proof[blockid.sequence])
+                            exception <malformed_block, hash_mismatch> :: raise(this);
+
+                        broadcast.dispatch(blockid, payload.proof, payload.messages, link);
                     });
                 }
                 else

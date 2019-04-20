@@ -6,6 +6,7 @@ namespace psb
 
     class malformed_mask;
     class malformed_block;
+    class hash_mismatch;
     class ghost_request;
     class out_of_range;
     class dead_link;
@@ -166,6 +167,7 @@ namespace psb
 
         // Private getters
 
+        std :: vector <hash> proof(const hash &) const;
         block block(const blockid &) const;
 
         const batchset & delivered() const;
@@ -189,7 +191,7 @@ namespace psb
         void available(const hash &, const std :: shared_ptr <link> &);
         void available(const blockid &, const std :: shared_ptr <link> &);
 
-        void dispatch(const blockid &, const class block &, const std :: shared_ptr <link> &);
+        void dispatch(const blockid &, const std :: vector <hash> &, const class block &, const std :: shared_ptr <link> &);
         void deliver(const batchinfo &);
 
         void release(const std :: vector <class block> &);
@@ -413,6 +415,21 @@ namespace psb
 
     template <typename type> class broadcast <type> :: link
     {
+        // Service nested structs
+
+        struct payload
+        {
+            // Public members
+
+            std :: vector <hash> proof;
+            std :: vector <message> messages;
+
+            // Bytewise
+
+            $bytewise(proof);
+            $bytewise(messages);
+        };
+
         // Typedefs
 
         typedef variant
@@ -420,7 +437,7 @@ namespace psb
             std :: vector <announcement>,
             offlist,
             std :: vector <blockid>,
-            std :: vector <message>
+            payload
         > transaction;
 
         // Members
@@ -561,6 +578,7 @@ namespace psb
 
         sponge _sponge;
 
+        std :: unordered_map <hash, std :: vector <hash>, shorthash> _proofs;
         std :: unordered_map <blockid, class block, shorthash> _blocks;
 
         std :: unordered_set <hash, shorthash> _announced;

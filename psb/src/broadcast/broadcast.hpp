@@ -58,6 +58,14 @@ namespace psb
 
     // Private getters
 
+    template <typename type> std :: vector <hash> broadcast <type> :: proof(const hash & batch) const
+    {
+        return this->_arc->_guard([&]()
+        {
+            return this->_arc->_proofs[batch];
+        });
+    }
+
     template <typename type> class broadcast <type> :: block broadcast <type> :: block(const blockid & blockid) const
     {
         return this->_arc->_guard([&]()
@@ -190,7 +198,7 @@ namespace psb
             this->_arc->_pipe.post();
     }
 
-    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid, const class block & block, const std :: shared_ptr <class link> & link)
+    template <typename type> void broadcast <type> :: dispatch(const blockid & blockid,  const std :: vector <hash> & proof, const class block & block, const std :: shared_ptr <class link> & link)
     {
         uint32_t size;
 
@@ -198,6 +206,9 @@ namespace psb
         {
             this->_arc->_requests.all.erase(blockid);
             this->_arc->_requests.secure.erase(blockid);
+
+            if(this->_arc->_proofs.find(blockid.hash) == this->_arc->_proofs.end())
+                this->_arc->_proofs[blockid.hash] = proof;
 
             if(this->_arc->_blocks.find(blockid) == this->_arc->_blocks.end())
             {
@@ -272,16 +283,22 @@ namespace psb
     template <typename type> void broadcast <type> :: release(const std :: vector <class block> & blocks)
     {
         std :: cout << "Releasing " << blocks.size() << " blocks:" << std :: endl;
-        hash :: state hasher;
+
+        std :: vector <hash> proof;
 
         for(const auto & block : blocks)
+        {
+            hash :: state hasher;
             for(const auto & message : block)
             {
-                std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl;
                 hasher.update(message);
+                std :: cout << " -> " << message.feed << "." << message.sequence << ": " << message.payload << std :: endl;
             }
 
-        batchinfo info = {.hash = hasher.finalize(), .size = static_cast <uint32_t> (blocks.size())};
+            proof.push_back(hasher.finalize());
+        }
+
+        batchinfo info = {.hash = proof, .size = static_cast <uint32_t> (blocks.size())};
         std :: cout << "Batch info: " << info.hash << " (" << info.size << ")" << std :: endl;
 
         enum {delivered, transferring, released} state = this->_arc->_guard([&]()
@@ -291,6 +308,8 @@ namespace psb
 
             if(this->_arc->_transfers.find(info.hash) != this->_arc->_transfers.end())
                 return transferring;
+
+            this->_arc->_proofs[info.hash] = proof;
 
             for(uint32_t sequence = 0; sequence < info.size; sequence++)
                 this->_arc->_blocks[{.hash = info.hash, .sequence = sequence}] = blocks[sequence];
@@ -302,7 +321,7 @@ namespace psb
         if(state == transferring)
         {
             for(uint32_t sequence = 0; sequence < info.size; sequence++)
-                this->dispatch({.hash = info.hash, .sequence = sequence}, blocks[sequence], nullptr);
+                this->dispatch({.hash = info.hash, .sequence = sequence}, proof, blocks[sequence], nullptr);
         }
         else if(state == released)
             this->deliver(info);
