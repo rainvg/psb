@@ -474,7 +474,7 @@ namespace psb
 
             this->_arc->_guard([&]()
             {
-                /*{cmtx.lock(); std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl; cmtx.unlock();}
+                {cmtx.lock(); std :: cout << "Verifying churn: treshold is " << (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links) << ", trigger is " << this->_arc->_churn.trigger << std :: endl; cmtx.unlock();}
                 if(this->_arc->_churn.trigger >= (configuration :: lanes :: fast :: churn :: period * configuration :: lanes :: fast :: links))
                 {
                     this->_arc->_churn.trigger = 0;
@@ -496,16 +496,18 @@ namespace psb
                         {cmtx.lock(); std :: cout << "Unlinking slow link " << links[index]->id() << " from fast lane, its latency is " << links[index]->latency() << std :: endl; cmtx.unlock();}
                         links[index]->shutdown();
                     }
-                }*/
+                }
 
                 handshakes.fast = configuration :: lanes :: fast :: links - this->_arc->_handshakes.fast - this->_arc->_links.fast.size();
 
                 if((this->_arc->_handshakes.secure == 0) && (this->_arc->_links.secure.size() < configuration :: lanes :: secure :: links :: min))
                 {
-                    for(const auto & link : this->_arc->_links.secure)
+                    std :: unordered_set <std :: shared_ptr <class link>> secure;
+                    secure.swap(this->_arc->_links.secure);
+
+                    for(const auto & link : secure)
                         link->shutdown();
 
-                    this->_arc->_links.secure.clear();
                     handshakes.secure = configuration :: lanes :: secure :: links :: max;
                 }
                 else
