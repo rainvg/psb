@@ -53,7 +53,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
     broadcast <uint64_t> mybroadcast(sampler, id);
 
     std :: ofstream log;
-    std :: string filename = "logs/" + std :: to_string(id) + ".txt";
+    std :: string filename = "app-logs/" + std :: to_string(id) + ".txt";
 
     log.open(filename, std :: ios :: out);
 
@@ -75,13 +75,16 @@ void peer(const int & id, const class address :: ip & directory, const interval 
             sleep(period);
         }
     }
+    else
+        sleep(period * broadcasts);
 
-    while(true)
-        sleep(1_h);
+    sleep(5_m);
 }
 
 int main(int argc, const char ** args)
 {
+    signal(SIGPIPE, SIG_IGN);
+
     auto usage = []()
     {
         std :: cout << "Usage: " << std :: endl;
