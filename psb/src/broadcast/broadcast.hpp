@@ -483,12 +483,10 @@ namespace psb
 
                 if((this->_arc->_handshakes.secure == 0) && (this->_arc->_links.secure.size() < configuration :: lanes :: secure :: links :: min))
                 {
-                    std :: unordered_set <std :: shared_ptr <class link>> secure;
-                    secure.swap(this->_arc->_links.secure);
-
-                    for(const auto & link : secure)
+                    for(const auto & link : this->_arc->_links.secure)
                         link->shutdown();
 
+                    this->_arc->_links.secure.clear();
                     handshakes.secure = configuration :: lanes :: secure :: links :: max;
                 }
                 else
