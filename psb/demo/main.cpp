@@ -13,7 +13,7 @@ std :: mutex cmtx;
 
 // Includes
 
-#include "psb/broadcast/broadcast.hpp"
+#include "psb/broadcast/consistent.hpp"
 #include "psb/sampler/directory.hpp"
 
 // Settings
