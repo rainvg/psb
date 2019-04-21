@@ -78,11 +78,19 @@ namespace psb
 
     // Methods
 
-    template <typename type> template <typename etype, std :: enable_if_t <std :: is_same <etype, typename broadcast <type> :: batch> :: value> *> void broadcast <type> :: on(const std :: function <void (const batch &)> & handler)
+    template <typename type> template <typename etype, std :: enable_if_t <std :: is_same <etype, spot> :: value> *> void broadcast <type> :: on(const std :: function <void (const hash &)> & handler)
     {
         this->_arc->_guard([&]()
         {
-            this->_arc->_handlers.push_back(handler);
+            this->_arc->_handlers.spot.push_back(handler);
+        });
+    }
+
+    template <typename type> template <typename etype, std :: enable_if_t <std :: is_same <etype, deliver> :: value> *> void broadcast <type> :: on(const std :: function <void (const batch &)> & handler)
+    {
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_handlers.deliver.push_back(handler);
         });
     }
 
@@ -95,7 +103,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: spot(const batchinfo & batch)
     {
-        this->_arc->_guard([&]()
+        std :: vector <std :: function <void (const struct hash &)>> handlers = this->_arc->_guard([&]()
         {
             if(!(this->announced(batch.hash)))
             {
@@ -113,8 +121,15 @@ namespace psb
                     {/*cmtx.lock(); std :: cout << "\t" << hash << std :: endl; cmtx.unlock();*/}
 
                 this->announce({.batch = batch, .available = false});
+
+                return this->_arc->_handlers.spot;
             }
+            else
+                return std :: vector <std :: function <void (const struct hash &)>> ();
         });
+
+        for(const auto & handler : handlers)
+            handler(batch.hash);
     }
 
     template <typename type> void broadcast <type> :: announce(const announcement & announcement)
@@ -270,7 +285,7 @@ namespace psb
 
             this->_arc->_delivered.add(info);
 
-            return this->_arc->_handlers;
+            return this->_arc->_handlers.deliver;
         });
 
         for(const auto & handler : handlers)

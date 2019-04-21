@@ -4,6 +4,9 @@ namespace psb
 {
     // Tags
 
+    class spot;
+    class deliver;
+
     class malformed_mask;
     class malformed_block;
     class hash_mismatch;
@@ -183,7 +186,9 @@ namespace psb
 
         // Methods
 
-        template <typename etype, std :: enable_if_t <std :: is_same <etype, batch> :: value> * = nullptr> void on(const std :: function <void (const batch &)> &);
+        template <typename etype, std :: enable_if_t <std :: is_same <etype, spot> :: value> * = nullptr> void on(const std :: function <void (const hash &)> &);
+        template <typename etype, std :: enable_if_t <std :: is_same <etype, deliver> :: value> * = nullptr> void on(const std :: function <void (const batch &)> &);
+
         void publish(const class signer :: publickey &, const uint32_t &, const type &, const signature &);
 
     private:
@@ -625,7 +630,11 @@ namespace psb
             std :: vector <blockid> failed;
         } _requests;
 
-        std :: vector <std :: function <void (const batch &)>> _handlers;
+        struct
+        {
+            std :: vector <std :: function <void (const hash &)>> spot;
+            std :: vector <std :: function <void (const batch &)>> deliver;
+        } _handlers;
 
         sampler <channels> _sampler;
 
