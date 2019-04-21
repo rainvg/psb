@@ -39,18 +39,7 @@ namespace psb
     {
         this->drive(this->_arc);
         this->accept(this->_arc, sampler);
-
-        [](std :: weak_ptr <arc> warc) -> promise <void>
-        {
-            while(true)
-            {
-                co_await wait(settings :: drive :: wakeinterval);
-                if(auto arc = warc.lock())
-                    arc->_pipe.post();
-                else
-                    break;
-            }
-        }(this->_arc);
+        this->collect(this->_arc);
     }
 
     // Private constructors
@@ -445,22 +434,8 @@ namespace psb
     {
         this->_arc->_guard([&]()
         {
-            for(const auto & request : outstanding)
-            {
-                this->_arc->_requests.all.erase(request);
-                this->_arc->_requests.secure.erase(request);
-            }
-
-            if(this->_arc->_links.fast.erase(link))
-                {cmtx.lock(); std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl; cmtx.unlock();}
-            if(this->_arc->_links.secure.erase(link))
-                {cmtx.lock(); std :: cout << "Unlinking  <secure> : " << link->id() << std :: endl; cmtx.unlock();}
-            this->_arc->_links.idle.erase(link);
-
-            if(this->_arc->_links.guest.erase(link))
-                {cmtx.lock(); std :: cout << "Unlinking  <guest> : " << link->id() << std :: endl; cmtx.unlock();}
-
-            this->_arc->_providers.erase(link);
+            this->_arc->_requests.failed.insert(this->_arc->_requests.failed.end(), outstanding.begin(), outstanding.end());
+            this->_arc->_links.dead.push_back(link);
         });
 
         this->_arc->_pipe.post();
@@ -655,7 +630,17 @@ namespace psb
                                 {cmtx.lock(); std :: cout << "Requesting block one block out of " << best.sequences.size() << " availables." << std :: endl; cmtx.unlock();}
                                 blockid blockid = {.hash = best.hash, .sequence = best.sequences[rand() % best.sequences.size()]};
                                 {cmtx.lock(); std :: cout << "Requesting " << blockid.hash << "." << blockid.sequence << std :: endl; cmtx.unlock();}
-                                idle->request(blockid);
+
+                                try
+                                {
+                                    idle->request(blockid);
+                                }
+                                catch(...)
+                                {
+                                    {cmtx.lock(); std :: cout << "Something went wrong while doing request to idle link." << std :: endl; cmtx.unlock();}
+                                    continue;
+                                }
+
                                 this->_arc->_requests.all.insert(blockid);
                             }
 
@@ -705,6 +690,50 @@ namespace psb
                 break;
         }
     }
+
+    template <typename type> promise <void> broadcast <type> :: collect(std :: weak_ptr <arc> warc)
+    {
+
+        while(true)
+        {
+            co_await wait(settings :: collect :: interval);
+            if(auto arc = warc.lock())
+            {
+                arc->_guard([&](){
+
+                    for(const auto & request : arc->_requests.failed)
+                    {
+                        {cmtx.lock(); std :: cout << "Removing failed request " << request.hash << "." << request.sequence << std :: endl; cmtx.unlock();}
+                        arc->_requests.all.erase(request);
+                        arc->_requests.secure.erase(request);
+                    }
+
+                    arc->_requests.failed.clear();
+
+                    for(const auto & link : arc->_links.dead)
+                    {
+                        if(arc->_links.fast.erase(link))
+                            {cmtx.lock(); std :: cout << "Unlinking  <fast> : " << link->id() << std :: endl; cmtx.unlock();}
+                        if(arc->_links.secure.erase(link))
+                            {cmtx.lock(); std :: cout << "Unlinking  <secure> : " << link->id() << std :: endl; cmtx.unlock();}
+                        arc->_links.idle.erase(link);
+
+                        if(arc->_links.guest.erase(link))
+                            {cmtx.lock(); std :: cout << "Unlinking  <guest> : " << link->id() << std :: endl; cmtx.unlock();}
+
+                        arc->_providers.erase(link);
+                    }
+
+                    arc->_links.dead.clear();
+                });
+
+                arc->_pipe.post();
+            }
+            else
+                break;
+        }
+    }
+
 };
 
 #endif

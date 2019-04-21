@@ -70,9 +70,9 @@ namespace psb
                 static constexpr interval keepalive = 5_s;
             };
 
-            struct drive
+            struct collect
             {
-                static constexpr interval wakeinterval = 10_s;
+                static constexpr interval interval = 2_s;
             };
         };
 
@@ -209,6 +209,7 @@ namespace psb
 
         promise <void> drive(std :: weak_ptr <arc>);
         promise <void> accept(std :: weak_ptr <arc>, sampler <channels>);
+        promise <void> collect(std :: weak_ptr <arc>);
     };
 
     template <typename type> struct broadcast <type> :: message
@@ -612,12 +613,16 @@ namespace psb
             std :: unordered_set <std :: shared_ptr <class link>> idle;
 
             std :: unordered_set <std :: shared_ptr <class link>> guest;
+            
+            std :: vector <std :: shared_ptr <class link>> dead;
         } _links;
 
         struct
         {
             std :: unordered_set <blockid, shorthash> all;
             std :: unordered_set <blockid, shorthash> secure;
+
+            std :: vector <blockid> failed;
         } _requests;
 
         std :: vector <std :: function <void (const batch &)>> _handlers;
