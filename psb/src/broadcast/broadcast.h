@@ -62,7 +62,7 @@ namespace psb
         {
             struct block
             {
-                static constexpr size_t size = 16;
+                static constexpr size_t size = 2048;
             };
 
             struct link
@@ -613,7 +613,7 @@ namespace psb
             std :: unordered_set <std :: shared_ptr <class link>> idle;
 
             std :: unordered_set <std :: shared_ptr <class link>> guest;
-            
+
             std :: vector <std :: shared_ptr <class link>> dead;
         } _links;
 
