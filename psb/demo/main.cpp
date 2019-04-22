@@ -33,7 +33,6 @@ using namespace drop;
 
 // Functions
 
-
 void rendezvous()
 {
     directory directory(settings :: directory :: port);

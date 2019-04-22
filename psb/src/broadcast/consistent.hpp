@@ -35,6 +35,9 @@ namespace psb
                 consistent.dispatch(warc, batch);
             }
         });
+
+        this->accept(this->_arc, sampler);
+        this->keepalive(this->_arc);
     }
 
     // Private constructors
@@ -70,6 +73,8 @@ namespace psb
 
     template <typename type> void consistent <type> :: spot(std :: weak_ptr <arc> warc, const hash & hash)
     {
+        std :: cout << "Spotted " << hash << std :: endl;
+
         this->_arc->_guard([&]()
         {
             this->_arc->_echoes[hash] = {.echoes = 0};
@@ -85,42 +90,69 @@ namespace psb
                     class hash hash;
                 } local {.warc = warc, .hash = hash};
 
-                auto connection = co_await sampler.connect <psb :: echo> ();
-                co_await connection.send(local.hash);
-
-                while(true)
+                try
                 {
-                    auto collisions = co_await connection.template receive <optional <offlist>> ();
+                    std :: cout << "Establishing connection." << std :: endl;
 
-                    if(collisions)
+                    auto connection = co_await sampler.connect <psb :: echo> ();
+
+                    std :: cout << "Connection established." << std :: endl;
+
+                    co_await connection.send(local.hash);
+
+                    std :: cout << "Hash sent." << std :: endl;
+
+                    while(true)
                     {
-                        if(!(*collisions).size())
-                        {
-                            if(auto arc = local.warc.lock())
-                            {
-                                bool check = arc->_guard([&]()
-                                {
-                                    if(arc->_echoes.find(local.hash) != arc->_echoes.end())
-                                    {
-                                        arc->_echoes[local.hash].echoes++;
-                                        return true;
-                                    }
-                                    else
-                                        return false;
-                                });
+                        auto collisions = co_await connection.template receive <optional <offlist>> ();
 
-                                if(check)
+                        if(collisions)
+                        {
+                            std :: cout << "Response obtained." << std :: endl;
+
+                            if(!(*collisions).size())
+                            {
+                                if(auto arc = local.warc.lock())
                                 {
-                                    consistent consistent = arc;
-                                    consistent.check(local.hash);
+                                    bool check = arc->_guard([&]()
+                                    {
+                                        if(arc->_echoes.find(local.hash) != arc->_echoes.end())
+                                        {
+                                            arc->_echoes[local.hash].echoes++;
+                                            return true;
+                                        }
+                                        else
+                                            return false;
+                                    });
+
+                                    if(check)
+                                    {
+                                        consistent consistent = arc;
+                                        consistent.check(local.hash);
+                                    }
                                 }
+
+                                break;
+                            }
+                            else
+                            {
+                                std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
+                                exit(1);
                             }
                         }
-                        else
-                        {
-                            std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
-                            exit(1);
-                        }
+                    }
+                }
+                catch(const exception <> & e)
+                {
+                    std :: cout << "Exception: " << e.what() << std :: endl;
+
+                    try
+                    {
+                        e.details();
+                    }
+                    catch(const int & err)
+                    {
+                        std :: cout << "Errno: " << err << std :: endl;
                     }
                 }
             }(this->_arc->_sampler);
@@ -129,7 +161,11 @@ namespace psb
 
     template <typename type> promise <void> consistent <type> :: dispatch(std :: weak_ptr <arc> warc, typename broadcast <type> :: batch batch)
     {
+        std :: cout << "Dispatching batch " << batch.info.hash << std :: endl;
+
         auto tampered = co_await verifier :: system.get().verify(batch);
+
+        std :: cout << "Signatures verified." << std :: endl;
 
         if(auto arc = warc.lock())
         {
@@ -158,8 +194,10 @@ namespace psb
                         sequence++;
                     }
 
-                this->_arc->_batches[batch.info.hash] = batch;
-                this->_arc->_collisions[batch.info.hash] = collisions;
+                std :: cout << collisions.size() << " collisions found." << std :: endl;
+
+                arc->_batches[batch.info.hash] = batch;
+                arc->_collisions[batch.info.hash] = collisions;
 
                 if(arc->_subscribers.find(batch.info.hash) != arc->_subscribers.end())
                 {
@@ -167,6 +205,8 @@ namespace psb
                     arc->_subscribers.erase(batch.info.hash);
                 }
             });
+
+            std :: cout << "There are " << subscribers.size() << " subscribers." << std :: endl;
 
             for(const auto & subscriber : subscribers)
             {
@@ -181,7 +221,10 @@ namespace psb
                         if(keepalive)
                             co_await *keepalive;
 
+                        std :: cout << "Sending collisions." << std :: endl;
+
                         co_await connection.template send <optional <offlist>> (response);
+                        co_await wait(1_s);
                     }
                     catch(...)
                     {
@@ -196,27 +239,51 @@ namespace psb
 
     template <typename type> promise <void> consistent <type> :: serve(std :: weak_ptr <arc> warc, connection connection)
     {
-        hash hash = co_await connection.receive <class hash> ();
-
-        if(auto arc = warc.lock())
+        try
         {
-            auto response = arc->_guard([&]() -> optional <offlist>
+            hash hash = co_await connection.receive <class hash> ();
+
+            std :: cout << "Received subscribe for " << hash << std :: endl;
+
+            if(auto arc = warc.lock())
             {
-                if(arc->_collisions.find(hash) != arc->_collisions.end())
-                    return arc->_collisions[hash];
+                auto response = arc->_guard([&]() -> optional <offlist>
+                {
+                    if(arc->_collisions.find(hash) != arc->_collisions.end())
+                    {
+                        std :: cout << "Collisions ready." << std :: endl;
+                        return arc->_collisions[hash];
+                    }
 
-                if(arc->_subscribers.find(hash) == arc->_subscribers.end())
-                    arc->_subscribers[hash] = std :: vector <subscriber> ();
+                    if(arc->_subscribers.find(hash) == arc->_subscribers.end())
+                        arc->_subscribers[hash] = std :: vector <subscriber> ();
 
-                arc->_subscribers[hash].push_back({.connection = connection});
+                    std :: cout << "Pushing subscriber." << std :: endl;
 
-                return optional <offlist> ();
-            });
+                    arc->_subscribers[hash].push_back({.connection = connection});
 
-            if(response)
+                    return optional <offlist> ();
+                });
+
+                if(response)
+                {
+                    std :: cout << "Sending response." << std :: endl;
+                    co_await connection.send(response);
+                    co_await wait(1_s); // TODO: check if really necessary
+                }
+            }
+        }
+        catch(const exception <> & e)
+        {
+            std :: cout << "Exception: " << e.what() << std :: endl;
+
+            try
             {
-                co_await connection.send(response);
-                co_await wait(1_s); // TODO: check if really necessary
+                e.details();
+            }
+            catch(const int & err)
+            {
+                std :: cout << "Errno: " << err << std :: endl;
             }
         }
     }
@@ -259,7 +326,9 @@ namespace psb
         {
             try
             {
-                auto connection = co_await sampler.accept <echo> ();
+                auto connection = co_await sampler.accept <psb :: echo> ();
+
+                std :: cout << "Connection incoming." << std :: endl;
 
                 if(auto arc = warc.lock())
                 {
@@ -285,12 +354,12 @@ namespace psb
             {
                 arc->_guard([&]()
                 {
-                    for(const auto & [hash, subscribers] : arc->_subscribers)
-                        for(const auto & subscriber : subscribers)
+                    for(auto & [hash, subscribers] : arc->_subscribers)
+                        for(auto & subscriber : subscribers)
                         {
                             try
                             {
-                                subscriber.keepalive = subscriber.send(optional <offlist> ());
+                                subscriber.keepalive = subscriber.connection.send(optional <offlist> ());
                             }
                             catch(...)
                             {

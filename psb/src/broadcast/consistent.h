@@ -48,8 +48,8 @@ namespace psb
         {
             struct sample
             {
-                static constexpr size_t size = 320;
-                static constexpr size_t threshold = 238;
+                static constexpr size_t size = 16; // 320;
+                static constexpr size_t threshold = 12; // 238;
             };
 
             struct keepalive
