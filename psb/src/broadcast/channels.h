@@ -3,7 +3,7 @@
 
 namespace psb
 {
-    enum channels {gossip};
+    enum channels {gossip, echo};
 };
 
 #endif
