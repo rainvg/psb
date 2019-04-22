@@ -83,7 +83,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
     else
         sleep(period * broadcasts);
 
-    sleep(5_m);
+    sleep(15_s);
 }
 
 int main(int argc, const char ** args)
