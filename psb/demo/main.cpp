@@ -33,7 +33,6 @@ using namespace drop;
 
 // Functions
 
-
 void rendezvous()
 {
     directory directory(settings :: directory :: port);
@@ -83,7 +82,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
     else
         sleep(period * broadcasts);
 
-    sleep(15_s);
+    sleep(5_m);
 }
 
 int main(int argc, const char ** args)
