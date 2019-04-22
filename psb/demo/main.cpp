@@ -31,42 +31,9 @@ struct settings
 using namespace psb;
 using namespace drop;
 
-
-
-int main()
-{
-    auto sampler = directory :: sample <channels> ({"127.0.0.1", 1234});
-    consistent <uint64_t> myconsistent(sampler, 0);
-
-    broadcast <uint64_t> :: batch batch;
-    signer signer;
-    hash :: state hasher;
-
-    std :: vector <broadcast <uint64_t> :: message> messages;
-    messages.reserve(2048);
-
-    for(size_t block = 0; block < 4; block++)
-    {
-        for(uint32_t sequence = block * 2048; sequence < (block + 1) * 2048; sequence++)
-            messages.push_back({signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence))});
-
-        messages.back() = {signer.publickey(), 0, block, signer.sign(uint32_t(0), static_cast <uint64_t> (block))};
-        batch.blocks.push_back(messages);
-
-        hasher.update(messages);
-        messages.clear();
-    }
-
-    batch.info = {.hash = hasher.finalize(), .size = 4};
-
-    myconsistent.dispatch(myconsistent._arc, batch);
-
-    sleep(1_h);
-}
-
 // Functions
 
-/*
+
 void rendezvous()
 {
     directory directory(settings :: directory :: port);
@@ -88,7 +55,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     std :: cout << "Starting broadcast." << std :: endl;
 
-    broadcast <uint64_t> mybroadcast(sampler, id);
+    consistent <uint64_t> myconsistent(sampler, id);
 
     std :: ofstream log;
     std :: string filename = "app-logs/" + std :: to_string(id) + ".txt";
@@ -97,7 +64,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     guard <simple> fileguard;
 
-    mybroadcast.on <broadcast <uint64_t> :: batch> ([&](const auto & batch)
+    myconsistent.on <deliver> ([&](const auto & batch)
     {
         fileguard([&](){
             log << (uint64_t) now() << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
@@ -109,7 +76,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         signer signer;
         for(uint64_t sequence = 0; sequence < broadcasts; sequence++)
         {
-            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence)));
+            myconsistent.publish(signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence)));
             sleep(period);
         }
     }
@@ -164,4 +131,3 @@ int main(int argc, const char ** args)
     }
 
 }
-*/

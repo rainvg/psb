@@ -18,7 +18,16 @@ namespace psb
     {
         std :: weak_ptr <arc> warc = this->_arc;
 
-        this->_arc->_broadcast.template on <deliver> ([=](const auto & batch)
+        this->_arc->_broadcast.template on <class spot> ([=](const auto & hash)
+        {
+            if(auto arc = warc.lock())
+            {
+                consistent consistent = arc;
+                consistent.spot(warc, hash);
+            }
+        });
+
+        this->_arc->_broadcast.template on <class deliver> ([=](const auto & batch)
         {
             if(auto arc = warc.lock())
             {
@@ -34,22 +43,103 @@ namespace psb
     {
     }
 
+    // Methods
+
+    template <typename type> template <typename etype, std :: enable_if_t <std :: is_same <etype, spot> :: value> *> void consistent <type> :: on(const std :: function <void (const hash &)> & handler)
+    {
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_handlers.spot.push_back(handler);
+        });
+    }
+
+    template <typename type> template <typename etype, std :: enable_if_t <std :: is_same <etype, deliver> :: value> *> void consistent <type> :: on(const std :: function <void (const typename broadcast <type> :: batch &)> & handler)
+    {
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_handlers.deliver.push_back(handler);
+        });
+    }
+
+    template <typename type> void consistent <type> :: publish(const class signer :: publickey & feed, const uint32_t & sequence, const type & payload, const signature & signature)
+    {
+        this->_arc->_broadcast.publish(feed, sequence, payload, signature);
+    }
+
     // Private methods
 
-    template <typename type> promise <void> consistent <type> :: dispatch(std :: weak_ptr <arc> warc, const typename broadcast <type> :: batch & batch)
+    template <typename type> void consistent <type> :: spot(std :: weak_ptr <arc> warc, const hash & hash)
     {
-        offlist collisions;
-        size_t sequence = 0;
+        this->_arc->_guard([&]()
+        {
+            this->_arc->_echoes[hash] = {.echoes = 0};
+        });
 
-        size_t cursor = 0;
+        for(size_t peer = 0; peer < settings :: sample :: size; peer++)
+        {
+            [&](sampler <channels> sampler) -> promise <void>
+            {
+                struct
+                {
+                    std :: weak_ptr <arc> warc;
+                    class hash hash;
+                } local {.warc = warc, .hash = hash};
 
+                auto connection = co_await sampler.connect <psb :: echo> ();
+                co_await connection.send(local.hash);
+
+                while(true)
+                {
+                    auto collisions = co_await connection.template receive <optional <offlist>> ();
+
+                    if(collisions)
+                    {
+                        if(!(*collisions).size())
+                        {
+                            if(auto arc = local.warc.lock())
+                            {
+                                bool check = arc->_guard([&]()
+                                {
+                                    if(arc->_echoes.find(local.hash) != arc->_echoes.end())
+                                    {
+                                        arc->_echoes[local.hash].echoes++;
+                                        return true;
+                                    }
+                                    else
+                                        return false;
+                                });
+
+                                if(check)
+                                {
+                                    consistent consistent = arc;
+                                    consistent.check(local.hash);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
+                            exit(1);
+                        }
+                    }
+                }
+            }(this->_arc->_sampler);
+        }
+    }
+
+    template <typename type> promise <void> consistent <type> :: dispatch(std :: weak_ptr <arc> warc, typename broadcast <type> :: batch batch)
+    {
         auto tampered = co_await verifier :: system.get().verify(batch);
 
         if(auto arc = warc.lock())
         {
+            std :: vector <subscriber> subscribers;
+            offlist collisions;
+
             arc->_guard([&]()
             {
-                class offlist offlist;
+                size_t sequence = 0;
+                size_t cursor = 0;
 
                 for(const auto & block : batch.blocks)
                     for(const auto & message : block)
@@ -58,7 +148,7 @@ namespace psb
                         {
                             index index{.feed = message.feed, .sequence = message.sequence};
                             if((arc->_messages.find(index) != arc->_messages.end()) && arc->_messages[index] != message.payload)
-                                offlist.add(sequence);
+                                collisions.add(sequence);
                             else
                                 arc->_messages[index] = message.payload;
                         }
@@ -68,8 +158,39 @@ namespace psb
                         sequence++;
                     }
 
-                this->_arc->_collisions[batch.info.hash] = offlist;
+                this->_arc->_batches[batch.info.hash] = batch;
+                this->_arc->_collisions[batch.info.hash] = collisions;
+
+                if(arc->_subscribers.find(batch.info.hash) != arc->_subscribers.end())
+                {
+                    subscribers.swap(arc->_subscribers[batch.info.hash]);
+                    arc->_subscribers.erase(batch.info.hash);
+                }
             });
+
+            for(const auto & subscriber : subscribers)
+            {
+                [&]() -> promise <void>
+                {
+                    auto connection = subscriber.connection;
+                    auto keepalive = subscriber.keepalive;
+                    auto response = collisions;
+
+                    try
+                    {
+                        if(keepalive)
+                            co_await *keepalive;
+
+                        co_await connection.template send <optional <offlist>> (response);
+                    }
+                    catch(...)
+                    {
+                    }
+                }();
+            }
+
+            consistent consistent = arc;
+            consistent.check(batch.info.hash);
         }
     }
 
@@ -93,8 +214,41 @@ namespace psb
             });
 
             if(response)
+            {
                 co_await connection.send(response);
+                co_await wait(1_s); // TODO: check if really necessary
+            }
         }
+    }
+
+    template <typename type> void consistent <type> :: check(const hash & hash)
+    {
+        auto batch = this->_arc->_guard([&]() -> optional <typename broadcast <type> :: batch>
+        {
+            if((this->_arc->_echoes.find(hash) != this->_arc->_echoes.end()) &&
+               (this->_arc->_echoes[hash].echoes >= settings :: sample :: threshold) &&
+               (this->_arc->_batches.find(hash) != this->_arc->_batches.end()))
+            {
+               this->_arc->_echoes.erase(hash);
+               return this->_arc->_batches[hash];
+            }
+            else
+                return optional <typename broadcast <type> :: batch> ();
+        });
+
+        if(batch)
+            this->deliver(*batch);
+    }
+
+    template <typename type> void consistent <type> :: deliver(const typename broadcast <type> :: batch & batch)
+    {
+        auto handlers = this->_arc->_guard([&]()
+        {
+            return this->_arc->_handlers.deliver;
+        });
+
+        for(const auto & handler : handlers)
+            handler(batch);
     }
 
     // Services
@@ -103,15 +257,21 @@ namespace psb
     {
         while(true)
         {
-            auto connection = co_await sampler.accept <echo> ();
-
-            if(auto arc = warc.lock())
+            try
             {
-                consistent consistent = arc;
-                consistent.serve(warc, connection);
+                auto connection = co_await sampler.accept <echo> ();
+
+                if(auto arc = warc.lock())
+                {
+                    consistent consistent = arc;
+                    consistent.serve(warc, connection);
+                }
+                else
+                    break;
             }
-            else
-                break;
+            catch(...)
+            {
+            }
         }
     }
 

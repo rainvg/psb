@@ -2,6 +2,13 @@
 
 namespace psb
 {
+    // Tags
+
+    class spot;
+    class deliver;
+
+    // Classes
+
     template <typename> class consistent;
 };
 
@@ -39,6 +46,12 @@ namespace psb
 
         struct settings
         {
+            struct sample
+            {
+                static constexpr size_t size = 320;
+                static constexpr size_t threshold = 238;
+            };
+
             struct keepalive
             {
                 static constexpr interval interval = 5_s;
@@ -49,6 +62,7 @@ namespace psb
 
         struct index;
         struct subscriber;
+        struct echo;
 
         // Service nested classes
 
@@ -74,10 +88,26 @@ namespace psb
 
         consistent(const std :: shared_ptr <arc> &);
 
+    public:
+
+        // Methods
+
+        template <typename etype, std :: enable_if_t <std :: is_same <etype, spot> :: value> * = nullptr> void on(const std :: function <void (const hash &)> &);
+        template <typename etype, std :: enable_if_t <std :: is_same <etype, deliver> :: value> * = nullptr> void on(const std :: function <void (const typename broadcast <type> :: batch &)> &);
+
+        void publish(const class signer :: publickey &, const uint32_t &, const type &, const signature &);
+
+    private:
+    public: // REMOVE ME
+
         // Private methods
 
-        promise <void> dispatch(std :: weak_ptr <arc>, const typename broadcast <type> :: batch &);
+        void spot(std :: weak_ptr <arc>, const hash &);
+        promise <void> dispatch(std :: weak_ptr <arc>, typename broadcast <type> :: batch);
         promise <void> serve(std :: weak_ptr <arc>, connection);
+
+        void check(const hash &);
+        void deliver(const typename broadcast <type> :: batch &);
 
         // Services
 
@@ -105,7 +135,13 @@ namespace psb
     template <typename type> struct consistent <type> :: subscriber
     {
         connection connection;
-        promise <void> keepalive;
+        optional <promise <void>> keepalive;
+    };
+
+    template <typename type> struct consistent <type> :: echo
+    {
+        size_t echoes;
+        std :: unordered_map <size_t, size_t> negations;
     };
 
     template <typename type> class consistent <type> :: verifier
@@ -198,9 +234,18 @@ namespace psb
         sampler <channels> _sampler;
 
         std :: unordered_map <index, type, shorthash> _messages;
+        std :: unordered_map <hash, typename broadcast <type> :: batch, shorthash> _batches;
+
         std :: unordered_map <hash, offlist, shorthash> _collisions;
+        std :: unordered_map <hash, echo, shorthash> _echoes;
 
         std :: unordered_map <hash, std :: vector <subscriber>, shorthash> _subscribers;
+
+        struct
+        {
+            std :: vector <std :: function <void (const hash &)>> spot;
+            std :: vector <std :: function <void (const typename broadcast <type> :: batch &)>> deliver;
+        } _handlers;
 
         broadcast <type> _broadcast;
         guard <simple> _guard;

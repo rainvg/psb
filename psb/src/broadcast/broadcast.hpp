@@ -278,7 +278,7 @@ namespace psb
         batch batch{.info = info};
         batch.blocks.reserve(info.size);
 
-        std :: vector <std :: function <void (const struct batch &)>> handlers = this->_arc->_guard([&]()
+        auto handlers = this->_arc->_guard([&]()
         {
             for(uint32_t sequence = 0; sequence < info.size; sequence++)
                 batch.blocks.push_back(this->_arc->_blocks[{.hash = info.hash, .sequence = sequence}]);
@@ -311,6 +311,8 @@ namespace psb
         }
 
         batchinfo info = {.hash = proof, .size = static_cast <uint32_t> (blocks.size())};
+        std :: vector <std :: function <void (const hash &)>> handlers;
+
         {/*cmtx.lock(); std :: cout << "Batch info: " << info.hash << " (" << info.size << ")" << std :: endl; cmtx.unlock();*/}
 
         enum {delivered, transferring, released} state = this->_arc->_guard([&]()
@@ -327,6 +329,8 @@ namespace psb
                 this->_arc->_blocks[{.hash = info.hash, .sequence = sequence}] = blocks[sequence];
 
             this->announce({.batch = info, .available = true});
+
+            handlers = this->_arc->_handlers.spot;
             return released;
         });
 
@@ -336,7 +340,12 @@ namespace psb
                 this->dispatch({.hash = info.hash, .sequence = sequence}, proof, blocks[sequence], nullptr);
         }
         else if(state == released)
+        {
+            for(const auto & handler : handlers)
+                handler(info.hash);
+
             this->deliver(info);
+        }
     }
 
     template <typename type> template <enum broadcast <type> :: lane linklane, typename... connections> promise <void> broadcast <type> :: link(const connections & ... incoming)
