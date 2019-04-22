@@ -11,7 +11,7 @@ namespace psb
 
     // Constructors
 
-    template <typename type> consistent <type> :: arc :: arc(const sampler <channels> & sampler) : _sampler(sampler), _broadcast(sampler)
+    template <typename type> consistent <type> :: arc :: arc(const sampler <channels> & sampler, const int & id) : _sampler(sampler), _broadcast(sampler, id)
     {
     }
 }

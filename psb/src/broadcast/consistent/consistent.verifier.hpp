@@ -10,7 +10,7 @@ namespace psb
 
     // Public static members
 
-    template <typename type> class consistent <type> :: verifier :: system consistent <type> :: verifier :: system;
+    template <typename type> class consistent <type> :: verifier :: pool consistent <type> :: verifier :: system;
 
     // Constructors
 
@@ -54,7 +54,7 @@ namespace psb
         {
             auto workunit = this->_guard([&]() -> optional <struct workunit>
             {
-                if(this->_workuinits.size())
+                if(this->_workunits.size())
                 {
                     struct workunit workunit = this->_workunits.front();
                     this->_workunits.pop_front();
@@ -69,12 +69,12 @@ namespace psb
                 std :: vector <uint32_t> tampered;
                 uint32_t sequence = 0;
 
-                for(const auto & block : workunit.batch.blocks)
+                for(const auto & block : (*workunit).batch.blocks)
                     for(const auto & message : block)
                     {
                         try
                         {
-                            verifier verifier(message.feed);
+                            drop :: verifier verifier(message.feed);
                             verifier.verify(message.signature, message.sequence, message.payload);
                         }
                         catch(...)
@@ -85,35 +85,36 @@ namespace psb
                         sequence++;
                     }
 
-                workunit.promise.resolve(tampered);
+
+                (*workunit).promise.resolve(tampered);
             }
 
             this->_semaphore.wait();
         }
     }
 
-    // system
+    // pool
 
     // Static members
 
-    template <typename type> thread_local size_t consistent <type> :: verifier :: system :: roundrobin = 0;
+    template <typename type> thread_local size_t consistent <type> :: verifier :: pool :: roundrobin = 0;
 
     // Private constructors
 
-    template <typename type> consistent <type> :: verifier :: system :: system() : _verifiers(new verifier[std :: thread :: hardware_concurrency()]), _size(std :: thread :: hardware_concurrency())
+    template <typename type> consistent <type> :: verifier :: pool :: pool() : _verifiers(new verifier[std :: thread :: hardware_concurrency()]), _size(std :: thread :: hardware_concurrency())
     {
     }
 
     // Destructor
 
-    template <typename type> consistent <type> :: verifier :: system :: ~system()
+    template <typename type> consistent <type> :: verifier :: pool :: ~pool()
     {
         delete [] this->_verifiers;
     }
 
     // Methods
 
-    template <typename type> typename consistent <type> :: verifier & consistent <type> :: verifier :: system :: get()
+    template <typename type> typename consistent <type> :: verifier & consistent <type> :: verifier :: pool :: get()
     {
         return this->_verifiers[(roundrobin++) % this->_size];
     }

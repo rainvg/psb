@@ -55,6 +55,8 @@ namespace psb
         class verifier;
         class arc;
 
+    public: // REMOVE ME
+
         // Members
 
         std :: shared_ptr <arc> _arc;
@@ -63,9 +65,10 @@ namespace psb
 
         // Constructors
 
-        consistent(const sampler <channels> &);
+        consistent(const sampler <channels> &, const int &);
 
     private:
+    public: // REMOVE ME
 
         // Private constructors
 
@@ -93,6 +96,10 @@ namespace psb
 
         $bytewise(feed);
         $bytewise(sequence);
+
+        // Operators
+
+        bool operator == (const index &) const;
     };
 
     template <typename type> struct consistent <type> :: subscriber
@@ -113,7 +120,7 @@ namespace psb
 
         // Service nested classes
 
-        class system
+        class pool
         {
             // Friends
 
@@ -126,13 +133,13 @@ namespace psb
 
             // Private constructors
 
-            system();
+            pool();
 
         public:
 
             // Destructor
 
-            ~system();
+            ~pool();
 
             // Methods
 
@@ -159,7 +166,7 @@ namespace psb
 
         // Public static members
 
-        static system system;
+        static pool system;
 
         // Constructors
 
@@ -184,14 +191,14 @@ namespace psb
     {
         // Friends
 
-        template <typename> class consistent;
+        template <typename> friend class consistent;
 
         // Members
 
         sampler <channels> _sampler;
 
         std :: unordered_map <index, type, shorthash> _messages;
-        std :: unordered_map <hash, offlist, shorthash> _batches;
+        std :: unordered_map <hash, offlist, shorthash> _collisions;
 
         std :: unordered_map <hash, std :: vector <subscriber>, shorthash> _subscribers;
 
@@ -202,7 +209,7 @@ namespace psb
 
         // Constructors
 
-        arc(const sampler <channels> &);
+        arc(const sampler <channels> &, const int &);
     };
 };
 

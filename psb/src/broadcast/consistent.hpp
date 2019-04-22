@@ -6,6 +6,7 @@
 #include "consistent.h"
 #include "consistent/consistent.arc.hpp"
 #include "consistent/consistent.verifier.hpp"
+#include "consistent/consistent.structs.hpp"
 
 namespace psb
 {
@@ -13,13 +14,13 @@ namespace psb
 
     // Constructors
 
-    template <typename type> consistent <type> :: consistent(const sampler <channels> & sampler) : _arc(std :: make_shared <arc> (sampler))
+    template <typename type> consistent <type> :: consistent(const sampler <channels> & sampler, const int & id) : _arc(std :: make_shared <arc> (sampler, id))
     {
         std :: weak_ptr <arc> warc = this->_arc;
 
         this->_arc->_broadcast.template on <deliver> ([=](const auto & batch)
         {
-            if(auto arc = warc.lock)
+            if(auto arc = warc.lock())
             {
                 consistent consistent = arc;
                 consistent.dispatch(warc, batch);
@@ -41,6 +42,7 @@ namespace psb
         size_t sequence = 0;
 
         size_t cursor = 0;
+
         auto tampered = co_await verifier :: system.get().verify(batch);
 
         if(auto arc = warc.lock())
@@ -66,7 +68,7 @@ namespace psb
                         sequence++;
                     }
 
-                this->_batches[batch.info.hash] = offlist;
+                this->_arc->_collisions[batch.info.hash] = offlist;
             });
         }
     }
@@ -79,8 +81,8 @@ namespace psb
         {
             auto response = arc->_guard([&]() -> optional <offlist>
             {
-                if(arc->_batches.find(hash) != arc->_batches.end())
-                    return arc->_batches[hash];
+                if(arc->_collisions.find(hash) != arc->_collisions.end())
+                    return arc->_collisions[hash];
 
                 if(arc->_subscribers.find(hash) == arc->_subscribers.end())
                     arc->_subscribers[hash] = std :: vector <subscriber> ();
