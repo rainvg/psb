@@ -43,8 +43,8 @@ void rendezvous()
 
 void peer(const int & id, const class address :: ip & directory, const interval & setuptime, const int & sources, const int & broadcasts, const interval & period, const int & batchsize, const interval & timeout)
 {
-    broadcast <uint64_t> :: configuration :: sponge :: capacity = batchsize;
-    broadcast <uint64_t> :: configuration :: sponge :: timeout = timeout;
+    broadcast <timestamp> :: configuration :: sponge :: capacity = batchsize;
+    broadcast <timestamp> :: configuration :: sponge :: timeout = timeout;
 
     std :: cout << "Starting sampler." << std :: endl;
 
@@ -54,7 +54,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     std :: cout << "Starting broadcast." << std :: endl;
 
-    consistent <uint64_t> myconsistent(sampler, id);
+    consistent <timestamp> myconsistent(sampler, id);
 
     std :: ofstream log;
     std :: string filename = "app-logs/" + std :: to_string(id) + ".txt";
@@ -65,8 +65,21 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     myconsistent.on <deliver> ([&](const auto & batch)
     {
+        timestamp now = drop :: now();
+        interval sum = 0;
+        size_t messages = 0;
+
+        for(const auto & block : batch.blocks)
+        {
+            messages += block.size();
+            for (const auto & message : block)
+                sum = sum + (message.payload - now);
+        }
+
+        interval delay = sum / messages;
+
         fileguard([&](){
-            log << (uint64_t) now() << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
+            log << (uint64_t) delay << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
         });
     });
 
@@ -75,7 +88,8 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         signer signer;
         for(uint64_t sequence = 0; sequence < broadcasts; sequence++)
         {
-            myconsistent.publish(signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence)));
+            timestamp now = drop :: now();
+            myconsistent.publish(signer.publickey(), sequence, now, signer.sign(sequence, now));
             sleep(period);
         }
     }
