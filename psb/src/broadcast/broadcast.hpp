@@ -103,7 +103,7 @@ namespace psb
 
     template <typename type> void broadcast <type> :: spot(const batchinfo & batch)
     {
-        std :: vector <std :: function <void (const struct hash &)>> handlers = this->_arc->_guard([&]()
+        auto handlers = this->_arc->_guard([&]()
         {
             if(!(this->announced(batch.hash)))
             {

@@ -94,17 +94,22 @@ namespace psb
 
     // Private methods
 
-    template <typename type> void consistent <type> :: spot(std :: weak_ptr <arc> warc, const hash & hash)
+    template <typename type> void consistent <type> :: spot(std :: weak_ptr <arc> warc, const hash & batch)
     {
         {/*std :: cout << "Spotted " << hash << std :: endl;*/}
 
-        this->_arc->_guard([&]()
+        auto handlers = this->_arc->_guard([&]()
         {
-            this->_arc->_quorums[hash] = {.echoes = 0};
+            this->_arc->_quorums[batch] = {.echoes = 0};
 
             for(const auto & server : this->_arc->_servers)
-                server->queries.post(hash);
+                server->queries.post(batch);
+
+            return this->_arc->_handlers.spot;
         });
+
+        for(const auto & handler : handlers)
+            handler(batch);
     }
 
     template <typename type> promise <void> consistent <type> :: dispatch(std :: weak_ptr <arc> warc, typename broadcast <type> :: batch batch)
@@ -390,7 +395,7 @@ namespace psb
                     }
                     else
                     {
-                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;*/}
+                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
                         exit(1);
                     }
                 }

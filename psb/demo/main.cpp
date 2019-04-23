@@ -13,7 +13,7 @@ std :: mutex cmtx;
 
 // Includes
 
-#include "psb/broadcast/consistent.hpp"
+#include "psb/broadcast/secure.hpp"
 #include "psb/sampler/directory.hpp"
 
 // Settings
@@ -54,7 +54,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     std :: cout << "Starting broadcast." << std :: endl;
 
-    consistent <timestamp> myconsistent(sampler, id);
+    secure <timestamp> mysecure(sampler, id);
 
     sleep(10_s);
 
@@ -65,7 +65,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     guard <simple> fileguard;
 
-    myconsistent.on <deliver> ([&](const auto & batch)
+    mysecure.on <deliver> ([&](const auto & batch)
     {
         timestamp now = drop :: now();
         interval sum = 0;
@@ -81,7 +81,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         interval delay = sum / messages;
 
         fileguard([&](){
-            log << (uint64_t) delay << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
+            log << (uint64_t) now << " " << (uint64_t) delay << " " << batch.info.hash << " " << messages << std :: endl;
         });
     });
 
@@ -91,7 +91,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         for(uint64_t sequence = 0; sequence < broadcasts; sequence++)
         {
             timestamp now = drop :: now();
-            myconsistent.publish(signer.publickey(), sequence, now, signer.sign(sequence, now));
+            mysecure.publish(signer.publickey(), sequence, now, signer.sign(sequence, now));
             sleep(period);
         }
     }
