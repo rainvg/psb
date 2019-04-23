@@ -48,8 +48,8 @@ namespace psb
         {
             struct sample
             {
-                static constexpr size_t size = 320;
-                static constexpr size_t threshold = 238;
+                static constexpr size_t size = 4; // 320;
+                static constexpr size_t threshold = 3; // 238;
             };
 
             struct keepalive
@@ -61,8 +61,10 @@ namespace psb
         // Service nested structs
 
         struct index;
-        struct subscriber;
         struct echo;
+        struct client;
+        struct server;
+        struct quorum;
 
         // Service nested classes
 
@@ -104,7 +106,6 @@ namespace psb
 
         void spot(std :: weak_ptr <arc>, const hash &);
         promise <void> dispatch(std :: weak_ptr <arc>, typename broadcast <type> :: batch);
-        promise <void> serve(std :: weak_ptr <arc>, connection);
 
         void check(const hash &);
         void deliver(const typename broadcast <type> :: batch &);
@@ -113,6 +114,12 @@ namespace psb
 
         promise <void> accept(std :: weak_ptr <arc>, sampler <channels>);
         promise <void> keepalive(std :: weak_ptr <arc>);
+
+        promise <void> clientsend(std :: weak_ptr <client>);
+        promise <void> clientreceive(std :: weak_ptr <arc>, std :: weak_ptr <client>);
+
+        promise <void> serversend(std :: weak_ptr <server>);
+        promise <void> serverreceive(std :: weak_ptr <arc>, std :: weak_ptr <server>);
     };
 
     template <typename type> struct consistent <type> :: index
@@ -132,13 +139,32 @@ namespace psb
         bool operator == (const index &) const;
     };
 
-    template <typename type> struct consistent <type> :: subscriber
+    template <typename type> struct consistent <type> :: echo
     {
-        connection connection;
-        optional <promise <void>> keepalive;
+        // Public members
+
+        hash batch;
+        offlist collisions;
+
+        // Bytewise
+
+        $bytewise(batch);
+        $bytewise(collisions);
     };
 
-    template <typename type> struct consistent <type> :: echo
+    template <typename type> struct consistent <type> :: client
+    {
+        connection connection;
+        pipe <optional <echo>> responses;
+    };
+
+    template <typename type> struct consistent <type> :: server
+    {
+        connection connection;
+        pipe <hash> queries;
+    };
+
+    template <typename type> struct consistent <type> :: quorum
     {
         size_t echoes;
         std :: unordered_map <size_t, size_t> negations;
@@ -237,9 +263,12 @@ namespace psb
         std :: unordered_map <hash, typename broadcast <type> :: batch, shorthash> _batches;
 
         std :: unordered_map <hash, offlist, shorthash> _collisions;
-        std :: unordered_map <hash, echo, shorthash> _echoes;
+        std :: unordered_map <hash, quorum, shorthash> _quorums;
 
-        std :: unordered_map <hash, std :: vector <subscriber>, shorthash> _subscribers;
+        std :: vector <std :: shared_ptr <client>> _clients;
+        std :: vector <std :: shared_ptr <server>> _servers;
+
+        std :: unordered_map <hash, std :: vector <std :: weak_ptr <client>>, shorthash> _subscriptions;
 
         struct
         {
