@@ -31,59 +31,6 @@ struct settings
 using namespace psb;
 using namespace drop;
 
-
-promise <void> yo(sampler <channels> sampler)
-{
-    [=]() mutable -> promise <void>
-    {
-        co_await wait(12_s);
-
-        while(true)
-        {
-            auto connection = co_await sampler.connect <gossip> ();
-
-            co_await connection.send <std :: string> ("Hello!");
-
-            auto response = co_await connection.receive <std :: string> ();
-            std :: cout << response << std :: endl;
-
-            co_await wait(2_s);
-        }
-    }();
-
-    [=]() mutable -> promise <void>
-    {
-        while(true)
-        {
-            auto connection = co_await sampler.accept <gossip> ();
-
-            auto request = co_await connection.receive <std :: string> ();
-            std :: cout << request << std :: endl;
-
-            co_await connection.send <std :: string> ("Ciao!");
-
-            co_await wait(0.1_s);
-        }
-    }();
-
-    co_await wait(1_h);
-}
-
-int main()
-{
-    directory directory(1234);
-
-    for(size_t i = 0; i < 4; i++)
-    {
-        std :: cout << "Starting sampler " << i << std :: endl;
-        auto sampler = directory :: sample <channels> ({"127.0.0.1", 1234});
-        yo(sampler);
-    }
-
-    sleep(1_h);
-}
-
-/*
 // Functions
 
 void rendezvous()
@@ -107,7 +54,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     std :: cout << "Starting broadcast." << std :: endl;
 
-    broadcast <uint64_t> mybroadcast(sampler, id);
+    consistent <uint64_t> myconsistent(sampler, id);
 
     std :: ofstream log;
     std :: string filename = "app-logs/" + std :: to_string(id) + ".txt";
@@ -116,7 +63,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     guard <simple> fileguard;
 
-    mybroadcast.on <deliver> ([&](const auto & batch)
+    myconsistent.on <deliver> ([&](const auto & batch)
     {
         fileguard([&](){
             log << (uint64_t) now() << " " << batch.info.hash << ":" << batch.info.size << std :: endl;
@@ -128,7 +75,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         signer signer;
         for(uint64_t sequence = 0; sequence < broadcasts; sequence++)
         {
-            mybroadcast.publish(signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence)));
+            myconsistent.publish(signer.publickey(), sequence, sequence, signer.sign(sequence, static_cast <uint64_t> (sequence)));
             sleep(period);
         }
     }
@@ -183,4 +130,3 @@ int main(int argc, const char ** args)
     }
 
 }
-*/
