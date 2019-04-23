@@ -73,7 +73,7 @@ void peer(const int & id, const class address :: ip & directory, const interval 
         {
             messages += block.size();
             for (const auto & message : block)
-                sum = sum + (message.payload - now);
+                sum = sum + (now - message.payload);
         }
 
         interval delay = sum / messages;
