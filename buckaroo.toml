@@ -1,4 +1,4 @@
 [[dependency]]
 package = "github.com/rainvg/drop"
-version = "branch=develop"
+version = "branch=unsafe"
 

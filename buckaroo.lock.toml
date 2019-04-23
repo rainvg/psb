@@ -1,4 +1,4 @@
-manifest = "6ad9af1796572f2312a6113e2454722ce621f1e8bf48547f4f0adb512e39830b"
+manifest = "af47f4fc6b4621b62d74fc50b4ac30b167039b4776a734303f9cad5d41335d4c"
 
 [[dependency]]
 package = "github.com/rainvg/drop"
@@ -9,5 +9,5 @@ versions = [ "branch=master" ]
 revision = "2841fd740122b966e6fa2cf8246f38a08f22caba"
 
 [lock."github.com/rainvg/drop"]
-versions = [ "branch=develop" ]
-revision = "4158a182a1d3ca6619a83414952101f353276ac8"
+versions = [ "branch=unsafe" ]
+revision = "5b921e0d44fa773d271731c0180f4beab20d1869"
