@@ -56,6 +56,8 @@ void peer(const int & id, const class address :: ip & directory, const interval 
 
     consistent <timestamp> myconsistent(sampler, id);
 
+    sleep(10_s);
+
     std :: ofstream log;
     std :: string filename = "app-logs/" + std :: to_string(id) + ".txt";
 
