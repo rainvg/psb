@@ -390,7 +390,7 @@ namespace psb
                     }
                     else
                     {
-                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;*/}
+                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
                         exit(1);
                     }
                 }
