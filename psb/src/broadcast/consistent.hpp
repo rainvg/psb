@@ -96,7 +96,7 @@ namespace psb
 
     template <typename type> void consistent <type> :: spot(std :: weak_ptr <arc> warc, const hash & hash)
     {
-        std :: cout << "Spotted " << hash << std :: endl;
+        {/*std :: cout << "Spotted " << hash << std :: endl;*/}
 
         this->_arc->_guard([&]()
         {
@@ -109,11 +109,11 @@ namespace psb
 
     template <typename type> promise <void> consistent <type> :: dispatch(std :: weak_ptr <arc> warc, typename broadcast <type> :: batch batch)
     {
-        std :: cout << "Dispatching batch " << batch.info.hash << std :: endl;
+        {/*std :: cout << "Dispatching batch " << batch.info.hash << std :: endl;*/}
 
         auto tampered = co_await verifier :: system.get().verify(batch);
 
-        std :: cout << "Signatures verified." << std :: endl;
+        {/*std :: cout << "Signatures verified." << std :: endl;*/}
 
         if(auto arc = warc.lock())
         {
@@ -142,9 +142,9 @@ namespace psb
                         sequence++;
                     }
 
-                std :: cout << collisions.size() << " collisions found for " << batch.info.hash << std :: endl;
+                {/*std :: cout << collisions.size() << " collisions found for " << batch.info.hash << std :: endl;*/}
                 arc->_batches[batch.info.hash] = batch;
-                std :: cout << "Added batch " << batch.info.hash << std :: endl;
+                {/*std :: cout << "Added batch " << batch.info.hash << std :: endl;*/}
 
                 arc->_collisions[batch.info.hash] = collisions;
 
@@ -155,7 +155,7 @@ namespace psb
                 }
             });
 
-            std :: cout << "There are " << subscriptions.size() << " subscriptions." << std :: endl;
+            {/*std :: cout << "There are " << subscriptions.size() << " subscriptions." << std :: endl;*/}
 
             for(const auto & subscription : subscriptions)
             {
@@ -175,7 +175,7 @@ namespace psb
     {
         auto batch = this->_arc->_guard([&]() -> optional <typename broadcast <type> :: batch>
         {
-            std :: cout << "Checking " << hash << " : " << (this->_arc->_quorums.find(hash) != this->_arc->_quorums.end()) << " " << ((this->_arc->_quorums.find(hash) != this->_arc->_quorums.end()) && (this->_arc->_quorums[hash].echoes >= settings :: sample :: threshold)) << " " << (this->_arc->_batches.find(hash) != this->_arc->_batches.end()) << std :: endl;
+            {/*std :: cout << "Checking " << hash << " : " << (this->_arc->_quorums.find(hash) != this->_arc->_quorums.end()) << " " << ((this->_arc->_quorums.find(hash) != this->_arc->_quorums.end()) && (this->_arc->_quorums[hash].echoes >= settings :: sample :: threshold)) << " " << (this->_arc->_batches.find(hash) != this->_arc->_batches.end()) << std :: endl;*/}
             if((this->_arc->_quorums.find(hash) != this->_arc->_quorums.end()) &&
                (this->_arc->_quorums[hash].echoes >= settings :: sample :: threshold) &&
                (this->_arc->_batches.find(hash) != this->_arc->_batches.end()))
@@ -211,7 +211,7 @@ namespace psb
             try
             {
                 auto connection = co_await sampler.accept <psb :: echo> ();
-                std :: cout << "Connection incoming." << std :: endl;
+                {/*std :: cout << "Connection incoming." << std :: endl;*/}
 
                 std :: shared_ptr <struct client> client(new (struct client){.connection = connection});
 
@@ -232,7 +232,7 @@ namespace psb
             }
             catch(...)
             {
-                std :: cout << "EXCEPTION: accept" << std :: endl;
+                {/*std :: cout << "EXCEPTION: accept" << std :: endl;*/}
             }
         }
     }
@@ -267,7 +267,7 @@ namespace psb
                     optional <echo> response = co_await client->responses.wait();
 
                     if(response)
-                        std :: cout << "Sending response for " << (*response).batch << std :: endl;
+                        {/*std :: cout << "Sending response for " << (*response).batch << std :: endl;*/}
 
                     co_await client->connection.send(response);
                 }
@@ -277,7 +277,7 @@ namespace psb
         }
         catch(...)
         {
-            std :: cout << "EXCEPTION: clientsend" << std :: endl;
+            {/*std :: cout << "EXCEPTION: clientsend" << std :: endl;*/}
         }
     }
 
@@ -291,7 +291,7 @@ namespace psb
                 {
                     hash query = co_await client->connection.template receive <hash> ();
 
-                    std :: cout << "Received query for " << query << std :: endl;
+                    {/*std :: cout << "Received query for " << query << std :: endl;*/}
 
                     if(auto arc = warc.lock())
                     {
@@ -320,7 +320,7 @@ namespace psb
         }
         catch(...)
         {
-            std :: cout << "EXCEPTION: clientreceive" << std :: endl;
+            {/*std :: cout << "EXCEPTION: clientreceive" << std :: endl;*/}
         }
     }
 
@@ -334,7 +334,7 @@ namespace psb
                 {
                     hash query = co_await server->queries.wait();
 
-                    std :: cout << "Sending query for " << query << std :: endl;
+                    {/*std :: cout << "Sending query for " << query << std :: endl;*/}
                     co_await server->connection.send(query);
                 }
                 else
@@ -343,7 +343,7 @@ namespace psb
         }
         catch(...)
         {
-            std :: cout << "EXCEPTION: serversend" << std :: endl;
+            {/*std :: cout << "EXCEPTION: serversend" << std :: endl;*/}
         }
     }
 
@@ -361,7 +361,7 @@ namespace psb
                     if(!response)
                         continue;
 
-                    std :: cout << "Received response for " << (*response).batch << std :: endl;
+                    {/*std :: cout << "Received response for " << (*response).batch << std :: endl;*/}
 
                     if(!(*response).collisions.size())
                     {
@@ -372,7 +372,7 @@ namespace psb
                                 if(arc->_quorums.find((*response).batch) != arc->_quorums.end())
                                 {
                                     arc->_quorums[(*response).batch].echoes++;
-                                    std :: cout << "Received " << arc->_quorums[(*response).batch].echoes << " responses for batch " << (*response).batch << std :: endl;
+                                    {/*std :: cout << "Received " << arc->_quorums[(*response).batch].echoes << " responses for batch " << (*response).batch << std :: endl;*/}
                                     return true;
                                 }
                                 else
@@ -390,7 +390,7 @@ namespace psb
                     }
                     else
                     {
-                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;
+                        std :: cerr << "Unimplemented: non-empty collision set." << std :: endl;*/}
                         exit(1);
                     }
                 }
@@ -400,7 +400,7 @@ namespace psb
         }
         catch(...)
         {
-            std :: cout << "EXCEPTION: serverreceive" << std :: endl;
+            {/*std :: cout << "EXCEPTION: serverreceive" << std :: endl;*/}
         }
     }
 
