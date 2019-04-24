@@ -44,24 +44,22 @@ void rendezvous(const int & expected)
 
     auto listener = tcp :: listen(settings :: synchronizer :: port);
 
-    while(true)
+    std :: vector <connection> peers;
+    peers.reserve(expected);
+
+    for(int peer = 0; peer < expected; peer++)
     {
-        std :: vector <connection> peers;
-        peers.reserve(expected);
-
-        for(int peer = 0; peer < expected; peer++)
-        {
-            std :: cout << "Waiting for peer " << peer << " / " << expected << std :: endl;
-            peers.push_back(listener.acceptsync());
-        }
-
-        std :: cout << "All peers connected." << std :: endl;
-
-        for(const auto & connection : peers)
-            connection.sendsync(true);
-
-        sleep(10_s);
+        std :: cout << "Waiting for peer " << peer << " / " << expected << std :: endl;
+        peers.push_back(listener.acceptsync());
     }
+
+    std :: cout << "All peers connected." << std :: endl;
+
+    for(const auto & connection : peers)
+        connection.sendsync(true);
+
+    while(true)
+        sleep(1_h);
 }
 
 void peer(const int & id, const class address :: ip & directory, const int & sources, const int & broadcasts, const interval & period, const int & batchsize, const interval & timeout)
@@ -90,6 +88,8 @@ void peer(const int & id, const class address :: ip & directory, const int & sou
 
     guard <simple> fileguard;
 
+    interval seppuku = 5_s;
+
     mysecure.on <deliver> ([&](const auto & batch)
     {
         timestamp now = drop :: now();
@@ -104,6 +104,9 @@ void peer(const int & id, const class address :: ip & directory, const int & sou
         }
 
         interval delay = sum / messages;
+
+        if(delay >= seppuku)
+            exit(0);
 
         fileguard([&](){
             log << (uint64_t) now << " " << (uint64_t) delay << " " << batch.info.hash << " " << messages << std :: endl;
@@ -123,9 +126,7 @@ void peer(const int & id, const class address :: ip & directory, const int & sou
     else
         sleep(period * broadcasts);
 
-    tcp :: connectsync({directory, settings :: synchronizer :: port}).receivesync <bool> ();
-
-    sleep(20_s);
+    sleep(5_m);
 }
 
 int main(int argc, const char ** args)
