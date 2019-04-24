@@ -116,7 +116,7 @@ namespace psb
     {
         {/*std :: cout << "Dispatching batch " << batch.info.hash << std :: endl;*/}
 
-        auto tampered = co_await verifier :: system.get().verify(batch);
+        auto tampered = std :: vector <uint32_t> (); // co_await verifier :: system.get().verify(batch);
 
         {/*std :: cout << "Signatures verified." << std :: endl;*/}
 
@@ -174,6 +174,8 @@ namespace psb
             consistent consistent = arc;
             consistent.check(batch.info.hash);
         }
+
+        return promise <void> ();
     }
 
     template <typename type> void consistent <type> :: check(const hash & hash)
